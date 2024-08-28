@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/moonwalker/bedrock/pkg/rules"
-
 	"github.com/moonwalker/bedrock/pkg/store"
 	redistore "github.com/moonwalker/bedrock/pkg/store/redis"
 )

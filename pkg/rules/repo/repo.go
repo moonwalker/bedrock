@@ -2,7 +2,6 @@ package repo
 
 import (
 	"encoding/json"
-	"fmt"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -41,27 +40,4 @@ func decode(data []byte) (error, *rules.Rule) {
 		}
 		return nil, r
 	}
-}
-
-func NewRulesRepo(repoBackendType, repoBackendURL string) (RuleRepo, error) {
-	var err error
-	var repo RuleRepo
-
-	switch repoBackendType {
-	case "redis":
-		repo, err = NewRedisRuleRepo(repoBackendURL)
-	case "postgres":
-		repo, err = NewPostgresRuleRepo(repoBackendURL)
-	case "jetstream":
-		repo, err = NewJetstreamRuleRepo(repoBackendURL)
-	default:
-		err = fmt.Errorf("unsupported rules repo backend: %s", repoBackendType)
-		return nil, err
-	}
-
-	if err != nil {
-		err = fmt.Errorf("failed to create %s rules repo: %s", repoBackendType, err.Error())
-	}
-
-	return repo, err
 }
