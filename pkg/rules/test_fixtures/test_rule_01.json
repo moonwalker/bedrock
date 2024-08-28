@@ -1,0 +1,243 @@
+{
+  "id": "bi19ul4p3g0g05k2ggl0",
+  "title": "NDC1 Loss - €15-€30",
+  "event": "GAME_TRANSACTION",
+  "criterias": [
+    {
+      "datasource": {
+        "id": "event",
+        "key": "event",
+        "alias": "event",
+        "changed": false
+      },
+      "returns": "eventType",
+      "connector": "\u0026\u0026",
+      "parameters": [],
+      "items": [],
+      "conditions": [
+        {
+          "field": "baseBalanceAfter",
+          "comparer": "\u003c",
+          "connector": "\u0026\u0026",
+          "value": "0.5",
+          "type": "float",
+          "items": [],
+          "method": "",
+          "alias": ""
+        },
+        {
+          "field": "activityType",
+          "comparer": "==",
+          "connector": "\u0026\u0026",
+          "value": "1",
+          "type": "number",
+          "items": [],
+          "method": "",
+          "alias": ""
+        }
+      ],
+      "filters": [],
+      "aggregations": []
+    },
+    {
+      "datasource": {
+        "id": "getUser",
+        "key": "user",
+        "alias": "user",
+        "changed": false
+      },
+      "returns": "",
+      "connector": "\u0026\u0026",
+      "parameters": [],
+      "items": [],
+      "conditions": [
+        {
+          "field": "tags",
+          "comparer": "none",
+          "connector": "\u0026\u0026",
+          "value": "NDC1",
+          "type": "string",
+          "items": [],
+          "method": "",
+          "alias": ""
+        },
+        {
+          "field": "",
+          "comparer": "==",
+          "connector": "\u0026\u0026",
+          "value": "",
+          "type": "",
+          "items": [
+            {
+              "field": "marketCode",
+              "comparer": "==",
+              "connector": "\u0026\u0026",
+              "value": "SE",
+              "type": "string",
+              "items": [],
+              "method": "",
+              "alias": ""
+            },
+            {
+              "field": "marketCode",
+              "comparer": "==",
+              "connector": "||",
+              "value": "FI",
+              "type": "string",
+              "items": [],
+              "method": "",
+              "alias": ""
+            }
+          ],
+          "method": "",
+          "alias": ""
+        }
+      ],
+      "filters": [],
+      "aggregations": []
+    },
+    {
+      "datasource": {
+        "id": "countEvents",
+        "key": "count",
+        "alias": "count_withdrawal",
+        "changed": false
+      },
+      "returns": "number",
+      "connector": "\u0026\u0026",
+      "parameters": [
+        {
+          "type": "eventType",
+          "value": "WITHDRAWAL"
+        }
+      ],
+      "items": [],
+      "conditions": [
+        {
+          "field": "",
+          "comparer": "==",
+          "connector": "\u0026\u0026",
+          "value": "0",
+          "type": "number",
+          "items": [],
+          "method": "",
+          "alias": ""
+        }
+      ],
+      "filters": [],
+      "aggregations": []
+    },
+    {
+      "datasource": {
+        "id": "countEvents",
+        "key": "count",
+        "alias": "count_deposit",
+        "changed": false
+      },
+      "returns": "number",
+      "connector": "\u0026\u0026",
+      "parameters": [
+        {
+          "type": "eventType",
+          "value": "DEPOSIT"
+        }
+      ],
+      "items": [],
+      "conditions": [
+        {
+          "field": "",
+          "comparer": "==",
+          "connector": "\u0026\u0026",
+          "value": "1",
+          "type": "number",
+          "items": [],
+          "method": "",
+          "alias": ""
+        }
+      ],
+      "filters": [],
+      "aggregations": []
+    },
+    {
+      "datasource": {
+        "id": "getEvent",
+        "key": "event",
+        "alias": "event_deposit",
+        "changed": false
+      },
+      "returns": "paramType",
+      "connector": "\u0026\u0026",
+      "parameters": [
+        {
+          "type": "eventType",
+          "value": "DEPOSIT"
+        }
+      ],
+      "items": [],
+      "conditions": [
+        {
+          "field": "baseAmount",
+          "comparer": "\u003c\u003e",
+          "connector": "\u0026\u0026",
+          "value": "15\u003c\u003e29",
+          "type": "float",
+          "items": [],
+          "method": "",
+          "alias": ""
+        }
+      ],
+      "filters": [],
+      "aggregations": []
+    }
+  ],
+  "actions": [
+    {
+      "method": "addTag",
+      "parameters": [
+        {
+          "type": "string",
+          "value": "NDC1"
+        }
+      ]
+    },
+    {
+      "method": "addFreespinsValuable",
+      "parameters": [
+        {
+          "type": "string",
+          "value": "2.5_pirates-plenty_0.1x25_0w"
+        },
+        {
+          "type": "string",
+          "value": "pirates-plenty"
+        },
+        {
+          "type": "number",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "method": "swn",
+      "parameters": [
+        {
+          "type": "string",
+          "value": "rule-new-valuable"
+        }
+      ]
+    },
+    {
+      "method": "slackMessage",
+      "parameters": [
+        {
+          "type": "string",
+          "value": "*NDC1 Loss - €15-€30*\\nUser `{{.user.providerUserId}}` from `{{.user.marketCode}}`\\n*Deposit Amount:* `€{{.event_deposit.baseAmount}}` \\n*Balance:* `€{{.event.baseBalanceAfter}}` \\nJust got a 25 freespins on Pirates Plenty!"
+        },
+        {
+          "type": "string",
+          "value": "CGSD9GNNL"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "id": "bhsmvj4kc8f0048ukgng",
+  "created": "0001-01-01T00:00:00Z",
+  "createdBy": "",
+  "title": "kptest",
+  "desc": "",
+  "tags": "kptest",
+  "active": true,
+  "archive": false,
+  "noCriterias": false,
+  "validFrom": null,
+  "validTo": null,
+  "onUnmet": 0,
+  "onFail": 0,
+  "event": "LOGIN",
+  "scheduled": false,
+  "runat": "",
+  "cron": "",
+  "criterias": [
+    {
+      "id": "s49c0",
+      "datasource": {
+        "id": "event",
+        "key": "event",
+        "alias": "event"
+      },
+      "returns": "eventType",
+      "parameters": [],
+      "conditions": [
+        {
+          "id": "61y80",
+          "field": "providerUserId",
+          "type": "number",
+          "method": "",
+          "comparer": "==",
+          "connector": "&&",
+          "value": "166",
+          "items": [],
+          "alias": ""
+        }
+      ],
+      "connector": "&&",
+      "filters": [],
+      "items": [],
+      "aggregations": []
+    },
+    {
+      "id": "jiy00",
+      "datasource": {
+        "id": "getUser",
+        "key": "user",
+        "alias": "user"
+      },
+      "returns": "",
+      "parameters": [],
+      "conditions": [
+        {
+          "id": "84000",
+          "field": "userId",
+          "type": "number",
+          "method": "",
+          "comparer": "==",
+          "connector": "&&",
+          "value": "85",
+          "items": [],
+          "alias": ""
+        }
+      ],
+      "connector": "&&",
+      "filters": [],
+      "items": [],
+      "aggregations": []
+    }
+  ],
+  "actions": [
+    {
+      "id": "3wls0",
+      "method": "slackMessage",
+      "parameters": [
+        {
+          "id": "4mm80",
+          "value": "Test login {{.user.userId}}",
+          "type": "string"
+        },
+        {
+          "id": "leq80",
+          "value": "C5VSMJX7U",
+          "type": "string"
+        }
+      ]
+    }
+  ]
+}

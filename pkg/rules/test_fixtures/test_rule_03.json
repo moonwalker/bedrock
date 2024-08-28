@@ -1,0 +1,132 @@
+{
+  "id": "bni34t3aeti2b28gqckg",
+  "created": "2019-12-01T21:36:52.076445825Z",
+  "createdBy": "leon@moonwalker.tech",
+  "title": "Grouping test 2",
+  "desc": "",
+  "tags": "",
+  "active": true,
+  "archive": false,
+  "noCriterias": false,
+  "validFrom": null,
+  "validTo": null,
+  "onUnmet": 1,
+  "onFail": 1,
+  "event": "LOGIN",
+  "scheduled": false,
+  "runat": "",
+  "cron": "",
+  "criterias": [
+    {
+      "id": "86tc0",
+      "datasource": {
+        "id": "getWallet",
+        "key": "wallet",
+        "alias": "wallet",
+        "changed": true
+      },
+      "returns": "",
+      "parameters": [],
+      "conditions": [
+        {
+          "id": "1g2o0",
+          "field": "",
+          "type": "",
+          "method": "",
+          "comparer": "==",
+          "connector": "||",
+          "value": "",
+          "items": [
+            {
+              "id": "xjuo0",
+              "field": "depositCount",
+              "type": "number",
+              "method": "",
+              "comparer": ">=",
+              "connector": "||",
+              "value": "1",
+              "items": [],
+              "alias": "",
+              "isDynamic": false
+            },
+            {
+              "id": "6vkg0",
+              "field": "depositCount",
+              "type": "number",
+              "method": "",
+              "comparer": "<",
+              "connector": "&&",
+              "value": "3",
+              "items": [],
+              "alias": "",
+              "isDynamic": false
+            }
+          ],
+          "alias": "",
+          "isDynamic": false
+        },
+        {
+          "id": "egw00",
+          "field": "",
+          "type": "",
+          "method": "",
+          "comparer": "==",
+          "connector": "||",
+          "value": "",
+          "items": [
+            {
+              "id": "sbf40",
+              "field": "depositCount",
+              "type": "number",
+              "method": "",
+              "comparer": ">=",
+              "connector": "||",
+              "value": "4",
+              "items": [],
+              "alias": "",
+              "isDynamic": false
+            },
+            {
+              "id": "8ik00",
+              "field": "depositCount",
+              "type": "number",
+              "method": "",
+              "comparer": "<",
+              "connector": "&&",
+              "value": "12",
+              "items": [],
+              "alias": "",
+              "isDynamic": false
+            }
+          ],
+          "alias": "",
+          "isDynamic": false
+        }
+      ],
+      "connector": "||",
+      "filters": [],
+      "items": [],
+      "aggregations": []
+    }
+  ],
+  "actions": [
+    {
+      "id": "sbi80",
+      "method": "slackMessage",
+      "parameters": [
+        {
+          "id": "14800",
+          "value": "Grouping test: {{.wallet.depositCount}}",
+          "type": "string",
+          "isDynamic": false
+        },
+        {
+          "id": "o41s0",
+          "value": "CGSK36T97",
+          "type": "string",
+          "isDynamic": false
+        }
+      ]
+    }
+  ]
+}
