@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	RULE_PREFIX    = "rules"    // => rules:id {..}
-	FORMULA_PREFIX = "formulas" // => formulas:id {..}
-	CAPSULE_PREFIX = "capsules" // => capsules:id {..}
+	RULE_PREFIX = "rules" // => rules:id {..}
 )
 
 type redisRuleRepo struct {
@@ -31,7 +29,7 @@ func (s *redisRuleRepo) Name() string {
 }
 
 func (s *redisRuleRepo) Get(id string) (*rules.Rule, error) {
-	key, err := fmtKey(id, s.prefix)
+	key, err := RedisFmtKey(id, s.prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +49,7 @@ func (s *redisRuleRepo) Get(id string) (*rules.Rule, error) {
 }
 
 func (s *redisRuleRepo) Save(rule *rules.Rule) error {
-	key, err := fmtKey(rule.ID, s.prefix)
+	key, err := RedisFmtKey(rule.ID, s.prefix)
 	if err != nil {
 		return err
 	}
@@ -65,7 +63,7 @@ func (s *redisRuleRepo) Save(rule *rules.Rule) error {
 }
 
 func (s *redisRuleRepo) Expire(id string, ttl int64) error {
-	key, err := fmtKey(id, s.prefix)
+	key, err := RedisFmtKey(id, s.prefix)
 	if err != nil {
 		return err
 	}
@@ -74,7 +72,7 @@ func (s *redisRuleRepo) Expire(id string, ttl int64) error {
 }
 
 func (s *redisRuleRepo) Remove(id string) error {
-	key, err := fmtKey(id, s.prefix)
+	key, err := RedisFmtKey(id, s.prefix)
 	if err != nil {
 		return err
 	}
@@ -117,7 +115,7 @@ func (s *redisRuleRepo) Active() int {
 	return count
 }
 
-func fmtKey(id string, prefix string) (string, error) {
+func RedisFmtKey(id string, prefix string) (string, error) {
 	if len(id) == 0 {
 		return "", errors.New("id not specified")
 	}

@@ -44,7 +44,7 @@ func (s *jetstreamRuleRepo) init() error {
 }
 
 func (s *jetstreamRuleRepo) Get(id string) (*rules.Rule, error) {
-	key, err := fmtSubjectKey(id, fmtRuleSubject)
+	key, err := FmtSubjectKey(id, fmtRuleSubject)
 	if err != nil {
 		return nil, err
 	}
@@ -65,13 +65,13 @@ func (s *jetstreamRuleRepo) Get(id string) (*rules.Rule, error) {
 func (s *jetstreamRuleRepo) Save(rule *rules.Rule) error {
 	old, err := s.Get(rule.ID)
 	if err == nil {
-		diffs := compareRules(old, rule)
+		diffs := CompareRules(old, rule)
 		if len(diffs) > 0 {
 			rule.Changes = strings.Join(diffs, "\n")
 		}
 	}
 
-	key, err := fmtSubjectKey(rule.ID, fmtRuleSubject)
+	key, err := FmtSubjectKey(rule.ID, fmtRuleSubject)
 	if err != nil {
 		return err
 	}
@@ -149,14 +149,14 @@ func (s *jetstreamRuleRepo) Active() int {
 
 // helpers
 
-func fmtSubjectKey(id string, fmtSubject string) (string, error) {
+func FmtSubjectKey(id string, fmtSubject string) (string, error) {
 	if len(id) == 0 {
 		return "", errors.New("id not specified")
 	}
 	return fmt.Sprintf(fmtSubject, id), nil
 }
 
-func compareRules(old *rules.Rule, new *rules.Rule) []string {
+func CompareRules(old *rules.Rule, new *rules.Rule) []string {
 	res := make([]string, 0)
 
 	// bool fields
