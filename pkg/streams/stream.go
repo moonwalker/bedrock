@@ -3,7 +3,6 @@ package streams
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -27,21 +26,23 @@ type KeyHistory struct {
 }
 
 type Stream struct {
-	natsURL             string
 	streamName          string
-	entriesPrefix       string
-	schemasPrefix       string
+	natsURL             string
 	natsNkeyUser        string
 	natsNkeySeed        string
 	natsCredentialsPath string
+	brand               string
+	EntriesPrefix       string
+	SchemasPrefix       string
 }
 
-func NewStream(url, streamName, entriesPrefix, schemasPrefix string) *Stream {
+func NewStream(url, streamName, entriesPrefix, schemasPrefix, brand string) *Stream {
 	return &Stream{
 		natsURL:       url,
 		streamName:    streamName,
-		entriesPrefix: entriesPrefix,
-		schemasPrefix: schemasPrefix,
+		brand:         brand,
+		EntriesPrefix: entriesPrefix,
+		SchemasPrefix: schemasPrefix,
 	}
 }
 
@@ -182,7 +183,7 @@ func (this *Stream) GetMessageByID(s jetstream.Stream, sequence uint64) ([]byte,
 
 }
 
-func (this *Stream) FetchAllMessages(stream string, filters []string, startTime *time.Time) ([]string, error) {
+func (this *Stream) FetchAllMessages(filters []string, startTime *time.Time) ([][]byte, error) {
 	start0 := time.Now()
 	nc, err := this.natsConnect()
 	if err != nil {
@@ -195,7 +196,7 @@ func (this *Stream) FetchAllMessages(stream string, filters []string, startTime 
 		return nil, err
 	}
 
-	s, err := js.Stream(context.Background(), stream)
+	s, err := js.Stream(context.Background(), this.streamName)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +222,7 @@ func (this *Stream) FetchAllMessages(stream string, filters []string, startTime 
 	}
 	elapsed1 := getElapsed(start1)
 
-	res := make([]string, 0)
+	res := make([][]byte, 0)
 	start2 := time.Now()
 	mb, err := consumer.FetchNoWait(FETCH_NO_WAIT)
 	if err != nil {
@@ -232,7 +233,7 @@ func (this *Stream) FetchAllMessages(stream string, filters []string, startTime 
 	i := 0
 	for m := range mb.Messages() {
 		i++
-		res = append(res, fmt.Sprintf("%d. Topic: %s, Message: %s", i, m.Subject(), string(m.Data())))
+		res = append(res, m.Data())
 	}
 
 	slog.Debug("fetch all messages",
@@ -391,7 +392,7 @@ func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, 
 	return pa, nil
 }
 
-func (this *Stream) PublishMsg(subject string, payload []byte, publisher string) (*jetstream.PubAck, error) {
+func (this *Stream) PublishMsg(subject string, payload []byte) (*jetstream.PubAck, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
 		return nil, err
@@ -408,7 +409,7 @@ func (this *Stream) PublishMsg(subject string, payload []byte, publisher string)
 		Subject: subject,
 		Data:    payload,
 		Header: nats.Header{
-			"publishedBy": []string{publisher},
+			"publishedBy": []string{this.brand},
 		},
 	})
 	if err != nil {
