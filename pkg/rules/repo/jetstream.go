@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	STREAM_NAME  = "rules"
 	RULE_SUBJECT = "rule.>"
 
 	fmtRuleSubject = "rule.%s"
@@ -27,8 +28,8 @@ type jetstreamRuleRepo struct {
 	jStream    *streams.Stream
 }
 
-func NewJetstreamRuleRepo(natsURL, streamName string) (RuleRepo, error) {
-	jsInst := &jetstreamRuleRepo{streamName, RULE_SUBJECT, streams.NewStream(natsURL, streamName, "", "")}
+func NewJetstreamRuleRepo(natsURL string) (RuleRepo, error) {
+	jsInst := &jetstreamRuleRepo{STREAM_NAME, RULE_SUBJECT, streams.NewStream(natsURL, STREAM_NAME, "", "")}
 	err := jsInst.init()
 	return jsInst, err
 }
