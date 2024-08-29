@@ -31,16 +31,14 @@ type Stream struct {
 	natsNkeyUser        string
 	natsNkeySeed        string
 	natsCredentialsPath string
-	brand               string
 	EntriesPrefix       string
 	SchemasPrefix       string
 }
 
-func NewStream(url, streamName, entriesPrefix, schemasPrefix, brand string) *Stream {
+func NewStream(url, streamName, entriesPrefix, schemasPrefix string) *Stream {
 	return &Stream{
 		natsURL:       url,
 		streamName:    streamName,
-		brand:         brand,
 		EntriesPrefix: entriesPrefix,
 		SchemasPrefix: schemasPrefix,
 	}
@@ -392,7 +390,7 @@ func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, 
 	return pa, nil
 }
 
-func (this *Stream) PublishMsg(subject string, payload []byte) (*jetstream.PubAck, error) {
+func (this *Stream) PublishMsg(subject string, payload []byte, publisher string) (*jetstream.PubAck, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
 		return nil, err
@@ -409,7 +407,7 @@ func (this *Stream) PublishMsg(subject string, payload []byte) (*jetstream.PubAc
 		Subject: subject,
 		Data:    payload,
 		Header: nats.Header{
-			"publishedBy": []string{this.brand},
+			"publishedBy": []string{publisher},
 		},
 	})
 	if err != nil {
