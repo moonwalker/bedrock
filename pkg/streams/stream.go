@@ -420,7 +420,7 @@ func (this *Stream) PublishMsg(subject string, payload []byte, publisher string)
 	return pa, nil
 }
 
-func (this *Stream) CreateBucket(bucket string, history int) error {
+func (this *Stream) CreateBucket(bucket string, history int, ttl time.Duration) error {
 	nc, err := this.natsConnect()
 	if err != nil {
 		return err
@@ -435,11 +435,17 @@ func (this *Stream) CreateBucket(bucket string, history int) error {
 	_, err = js.KeyValue(context.Background(), bucket)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrBucketNotFound) {
-			_, err = js.CreateKeyValue(context.Background(), jetstream.KeyValueConfig{
+			cfg := jetstream.KeyValueConfig{
 				Bucket:   bucket,
-				History:  uint8(history),
 				MaxBytes: MAX_BYTES,
-			})
+			}
+			if history > 0 {
+				cfg.History = uint8(history)
+			}
+			if ttl != 0 {
+				cfg.TTL = ttl
+			}
+			_, err = js.CreateKeyValue(context.Background(), cfg)
 		}
 		if err != nil {
 			return err
