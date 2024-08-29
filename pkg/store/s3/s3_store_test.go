@@ -1,4 +1,5 @@
 // $ go test -v pkg/store/s3/*.go
+
 package s3store
 
 import (

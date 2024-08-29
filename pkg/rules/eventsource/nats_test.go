@@ -19,14 +19,14 @@ func TestNatsEventsource(t *testing.T) {
 	commands := make(chan *rules.Event)
 	events := make(chan *rules.Event)
 
-	evs := NewNatsEventSource()
-	err := evs.Receive("test", commands, events, []string{"TEST"})
+	evs := NewNatsEventSource(nats.DefaultURL)
+	err := evs.Receive("test", commands, events)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	reschan := make(chan *rules.EvalResult)
-	go eventsLoop(events, reschan, time.Second*5)
+	go eventsLoop(events, reschan, time.Second*1)
 	go handleExecResults(reschan)
 	publishEvents(t, 10)
 

@@ -21,7 +21,7 @@ func NewNatsEventSource(url string) EventSource {
 	return &natsEventSource{url: url}
 }
 
-func (s *natsEventSource) Receive(queue string, commands chan *rules.Event, events chan *rules.Event, topics []string) error {
+func (s *natsEventSource) Receive(queue string, commands chan *rules.Event, events chan *rules.Event) error {
 	var err error
 	s.con, err = nats.Connect(s.url,
 		nats.ErrorHandler(errorHandler),
@@ -44,6 +44,11 @@ func (s *natsEventSource) Receive(queue string, commands chan *rules.Event, even
 	})
 	if err != nil {
 		return err
+	}
+
+	// in this case we only handling commands
+	if events == nil {
+		return nil
 	}
 
 	// subscription for workloads

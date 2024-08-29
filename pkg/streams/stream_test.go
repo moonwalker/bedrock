@@ -62,7 +62,7 @@ func TestConsume(t *testing.T) {
 	publish_subject := "FOO.TEST1"
 	publish_count := 10
 
-	jStream := NewStream(natsURL, streamName, "", "", "")
+	jStream := NewStream(natsURL, streamName, "", "")
 	_, err := jStream.CreateStream(consumer_subjects)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestFetchMessages(t *testing.T) {
 	filters := []string{"transaction.*.balance_transaction"}
 
 	tt := time.Now().Local().Add(-1 * time.Minute * time.Duration(35))
-	jStream := NewStream(natsURL, streamName, "", "", "")
+	jStream := NewStream(natsURL, streamName, "", "")
 	msgs, err := jStream.FetchAllMessages(filters, &tt)
 	if err != nil {
 		t.Fatal(err)

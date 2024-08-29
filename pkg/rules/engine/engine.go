@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -20,16 +19,16 @@ const (
 
 type Engine struct {
 	sync.Mutex
-	debug     *bool
-	enabled   bool
-	onStats   func(*EngineStats)
-	rules     []*rules.Rule
-	funcs     rules.ValueFuncs
-	evaluator rules.Evaluator
-	Repo      repo.RuleRepo
-	Commands  chan *rules.Event
-	Events    chan *rules.Event
-	redisURL  string
+	debug            *bool
+	enabled          bool
+	onStats          func(*EngineStats)
+	rules            []*rules.Rule
+	funcs            rules.ValueFuncs
+	evaluator        rules.Evaluator
+	Repo             repo.RuleRepo
+	Commands         chan *rules.Event
+	Events           chan *rules.Event
+	schedulerPoolURL string
 }
 
 type EngineStats struct {
@@ -39,7 +38,7 @@ type EngineStats struct {
 }
 
 func NewRuleEngine(debug *bool, repo repo.RuleRepo, funcs rules.FuncMap, evaluator rules.Evaluator) *Engine {
-	return &Engine{
+	e := &Engine{
 		debug:     debug,
 		enabled:   true,
 		funcs:     rules.MakeValueFuncs(funcs),
@@ -48,13 +47,14 @@ func NewRuleEngine(debug *bool, repo repo.RuleRepo, funcs rules.FuncMap, evaluat
 		Commands:  make(chan *rules.Event),
 		Events:    make(chan *rules.Event),
 	}
-}
-
-func (e *Engine) Run(ctx context.Context, redisURL string) chan *rules.EvalResult {
-	reschan := make(chan *rules.EvalResult)
-	e.redisURL = redisURL
 	e.loadRules()
 	go e.commandsLoop()
+	return e
+}
+
+func (e *Engine) ProcessEvents(schedulerPoolURL string) chan *rules.EvalResult {
+	e.schedulerPoolURL = schedulerPoolURL
+	reschan := make(chan *rules.EvalResult)
 	go e.eventsLoop(reschan)
 	return reschan
 }
@@ -215,7 +215,7 @@ func (e *Engine) findRules(topic string) []*rules.Rule {
 }
 
 func (e *Engine) scheduleRule(rule *rules.Rule, event *rules.Event) error {
-	d := worker.NewDispatcher("worker", e.redisURL, 100)
+	d := worker.NewDispatcher("worker", e.schedulerPoolURL, 100)
 	defer d.Close()
 
 	runAt, err := time.Parse(time.RFC3339Nano, rule.RunAt)
