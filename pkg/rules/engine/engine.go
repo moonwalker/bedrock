@@ -174,7 +174,7 @@ func (e *Engine) eventsLoop(reschan chan *rules.EvalResult) {
 			continue
 		}
 		// find rule candidates to execute
-		for _, rule := range e.findRules(event.Topic) {
+		for _, rule := range e.FindRules(event.Topic) {
 			if rule.Scheduled {
 				err := e.scheduleRule(rule, event)
 				if err != nil {
@@ -197,7 +197,7 @@ func (e *Engine) loadRules() {
 	slog.Debug("rules loaded", "count", len(e.rules))
 }
 
-func (e *Engine) findRules(topic string) []*rules.Rule {
+func (e *Engine) FindRules(topic string) []*rules.Rule {
 	match := make([]*rules.Rule, 0)
 	for _, r := range e.rules {
 		if r.Event == topic {
