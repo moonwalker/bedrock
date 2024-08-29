@@ -19,7 +19,6 @@ const (
 
 type Engine struct {
 	sync.Mutex
-	debug            *bool
 	enabled          bool
 	onStats          func(*EngineStats)
 	rules            []*rules.Rule
@@ -37,9 +36,8 @@ type EngineStats struct {
 	ActiveRulesLoaded int    `json:"activeRulesLoaded"`
 }
 
-func NewRuleEngine(debug *bool, repo repo.RuleRepo, funcs rules.FuncMap, evaluator rules.Evaluator) *Engine {
+func NewRuleEngine(repo repo.RuleRepo, funcs rules.FuncMap, evaluator rules.Evaluator) *Engine {
 	e := &Engine{
-		debug:     debug,
 		enabled:   true,
 		funcs:     rules.MakeValueFuncs(funcs),
 		evaluator: evaluator,
@@ -196,9 +194,7 @@ func (e *Engine) loadRules() {
 			e.rules = append(e.rules, rule)
 		}
 	})
-	if *e.debug {
-		slog.Info("rules loaded", "count", len(e.rules))
-	}
+	slog.Debug("rules loaded", "count", len(e.rules))
 }
 
 func (e *Engine) findRules(topic string) []*rules.Rule {
@@ -208,9 +204,7 @@ func (e *Engine) findRules(topic string) []*rules.Rule {
 			match = append(match, r)
 		}
 	}
-	if *e.debug {
-		slog.Info("rules match", "count", len(match))
-	}
+	slog.Debug("rules match", "count", len(match))
 	return match
 }
 
