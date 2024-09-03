@@ -15,31 +15,32 @@ const (
 )
 
 type Rule struct {
-	ID           string      `json:"id"`
-	Archive      bool        `json:"archive"`
-	Active       bool        `json:"active"`
-	OnUnmet      int         `json:"onUnmet"`
-	OnMet        int         `json:"onMet"`
-	OnFail       int         `json:"onFail"`
-	Title        string      `json:"title"`
-	Desc         string      `json:"desc"`
-	Tags         string      `json:"tags"`
-	Created      time.Time   `json:"created"`
-	Updated      time.Time   `json:"updated"`
-	Event        string      `json:"event"`
-	Criterias    []*Criteria `json:"criterias"`
-	NoCriterias  bool        `json:"noCriterias"`
-	Chainable    bool        `json:"chainable"`
-	Actions      []*Action   `json:"actions"`
-	UnmetActions []*Action   `json:"unmetActions"`
-	Scheduled    bool        `json:"scheduled"`
-	RunAt        string      `json:"runat"`
-	Cron         string      `json:"cron"`
-	CreatedBy    string      `json:"createdBy"`
-	UpdatedBy    string      `json:"updatedBy"`
-	ValidFrom    time.Time   `json:"validFrom"`
-	ValidTo      time.Time   `json:"validTo"`
-	Changes      string      `json:"changes"`
+	ID           string                 `json:"id"`
+	Archive      bool                   `json:"archive"`
+	Active       bool                   `json:"active"`
+	OnUnmet      int                    `json:"onUnmet"`
+	OnMet        int                    `json:"onMet"`
+	OnFail       int                    `json:"onFail"`
+	Title        string                 `json:"title"`
+	Desc         string                 `json:"desc"`
+	Tags         string                 `json:"tags"`
+	Created      time.Time              `json:"created"`
+	Updated      time.Time              `json:"updated"`
+	Event        string                 `json:"event"`
+	Criterias    []*Criteria            `json:"criterias"`
+	NoCriterias  bool                   `json:"noCriterias"`
+	Chainable    bool                   `json:"chainable"`
+	Actions      []*Action              `json:"actions"`
+	UnmetActions []*Action              `json:"unmetActions"`
+	Scheduled    bool                   `json:"scheduled"`
+	RunAt        string                 `json:"runat"`
+	Cron         string                 `json:"cron"`
+	CreatedBy    string                 `json:"createdBy"`
+	UpdatedBy    string                 `json:"updatedBy"`
+	ValidFrom    time.Time              `json:"validFrom"`
+	ValidTo      time.Time              `json:"validTo"`
+	Changes      string                 `json:"changes"`
+	Metadata     map[string]interface{} `json:"metadata"`
 }
 
 type Criteria struct {
