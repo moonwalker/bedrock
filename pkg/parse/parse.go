@@ -7,13 +7,10 @@ import (
 )
 
 func ParseString(v interface{}) string {
-	if v != nil {
-		switch t := v.(type) {
-		case string:
-			return t
-		}
+	if v == nil {
+		return ""
 	}
-	return ""
+	return fmt.Sprintf("%v", v)
 }
 
 func ParseInt64(v interface{}) int64 {
