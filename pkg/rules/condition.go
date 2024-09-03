@@ -253,7 +253,7 @@ func compareBetweenValue(fv interface{}, value string, paramType string) bool {
 		case PARAMTYPE_DATE, PARAMTYPE_DATETIME:
 			d := parse.ParseDate(fv)
 			a := parse.ParseDate(values[0])
-			b := parse.ParseDate(value[1])
+			b := parse.ParseDate(values[1])
 			return compareDate(d, a, COMPARER_GREATER_OR_EQUAL) && compareDate(d, b, COMPARER_LESS_OR_EQUAL)
 		case PARAMTYPE_DURATION:
 			d := parse.ParseDate(fv)

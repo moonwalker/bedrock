@@ -118,7 +118,7 @@ func TestConditionEvaluate(t *testing.T) {
 		Alias:     "event",
 		Field:     "date",
 		Comparer:  COMPARER_BETWEEN,
-		Value:     "2006-01-02T14:00:00Z<>2006-01-02T16:00:00Z",
+		Value:     "2006-01-02T15:00:00Z<>2006-01-02T15:05:00Z",
 		Type:      PARAMTYPE_DATE,
 		Connector: CONNECTOR_AND,
 	}
@@ -140,23 +140,23 @@ func TestConditionEvaluate(t *testing.T) {
 		Alias:     "event",
 		Field:     "expiresAt",
 		Comparer:  COMPARER_GREATER_OR_EQUAL,
-		Value:     "2020-08-28T21:56:00Z",
-		Type:      PARAMTYPE_DATETIME,
-		Connector: CONNECTOR_AND,
-	}
-	e = evaluate(ctx, event, condition)
-	assert.True(t, e)
-
-	condition = &Condition{
-		Alias:     "event",
-		Field:     "expiresAt",
-		Comparer:  COMPARER_LESS_OR_EQUAL,
-		Value:     "2020-08-28T21:56:00Z",
+		Value:     "2020-08-28T21:56:00.000000000Z",
 		Type:      PARAMTYPE_DATETIME,
 		Connector: CONNECTOR_AND,
 	}
 	e = evaluate(ctx, event, condition)
 	assert.False(t, e)
+
+	condition = &Condition{
+		Alias:     "event",
+		Field:     "expiresAt",
+		Comparer:  COMPARER_LESS_OR_EQUAL,
+		Value:     "2020-08-28T21:56:00.000000000Z",
+		Type:      PARAMTYPE_DATETIME,
+		Connector: CONNECTOR_AND,
+	}
+	e = evaluate(ctx, event, condition)
+	assert.True(t, e)
 }
 
 func TestEvaluateConditions(t *testing.T) {
