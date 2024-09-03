@@ -6,6 +6,16 @@ import (
 	"time"
 )
 
+func ParseString(v interface{}) string {
+	if v != nil {
+		switch t := v.(type) {
+		case string:
+			return t
+		}
+	}
+	return ""
+}
+
 func ParseInt64(v interface{}) int64 {
 	switch t := v.(type) {
 	case int64:
