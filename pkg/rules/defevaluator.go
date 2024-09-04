@@ -37,9 +37,10 @@ func evaluateRule(funcs ValueFuncs, ctx *Context, rule *Rule, event *Event) *Eva
 		Event:       event,
 		Context:     ctx,
 		Error:       err,
+		Met:         crits.ok,
 		Unmet:       !crits.ok,
+		MetReason:   crits.met(),
 		UnmetReason: crits.unmet(),
-		MetReasons:  crits.met(),
 		Duration:    time.Since(start),
 	}
 }

@@ -8,9 +8,10 @@ type EvalResult struct {
 	Rule        *Rule         `json:"rule"`
 	Event       *Event        `json:"event"`
 	Context     *Context      `json:"context"`
+	Met         bool          `json:"met"`
 	Unmet       bool          `json:"unmet"`
+	MetReason   string        `json:"-"`
 	UnmetReason string        `json:"-"`
-	MetReasons  string        `json:"-"`
 	Error       error         `json:"-"`
 	Duration    time.Duration `json:"-"`
 }

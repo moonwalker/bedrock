@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,6 +46,5 @@ func TestRuleOnMetReason(t *testing.T) {
 	assert.Nil(t, res.unmetCondition)
 	assert.True(t, res.ok)
 
-	fmt.Println(res.met())
-	// assert.Equal(t, ON_FAIL_DEACTIVATE, r.OnFail)
+	assert.Equal(t, "user.userId == 1 or user.marketCode != SE", res.met())
 }
