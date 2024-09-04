@@ -39,6 +39,7 @@ func evaluateRule(funcs ValueFuncs, ctx *Context, rule *Rule, event *Event) *Eva
 		Error:       err,
 		Unmet:       !crits.ok,
 		UnmetReason: crits.unmet(),
+		MetReasons:  crits.met(),
 		Duration:    time.Since(start),
 	}
 }
@@ -69,6 +70,70 @@ type evalCriteriasResult struct {
 	unmetDataSource      interface{}
 	unmetDataSourceAlias string
 	unmetCondition       *Condition
+	metCriterias         []*Criteria
+}
+
+func fmtMetCriteria(criteria *Criteria) string {
+	var sb strings.Builder
+
+	for i, condition := range criteria.Conditions {
+		if i > 0 {
+			if condition.Connector == CONNECTOR_AND {
+				sb.WriteString(" and ")
+			} else {
+				sb.WriteString(" or ")
+			}
+		}
+		sb.WriteString(criteria.DataSource.Alias)
+		if condition.Field != "" {
+			sb.WriteString(".")
+			sb.WriteString(condition.Field)
+		}
+
+		if condition.Comparer == COMPARER_EXISTS {
+			sb.WriteString("is set")
+		} else if condition.Comparer == COMPARER_NOT_SET {
+			sb.WriteString("is not set")
+		} else {
+			sb.WriteString(" ")
+			sb.WriteString(condition.Comparer)
+			sb.WriteString(" ")
+		}
+		sb.WriteString(condition.Value)
+	}
+
+	return sb.String()
+}
+
+func (res *evalCriteriasResult) met() string {
+	if !res.ok {
+		return ""
+	}
+
+	if len(res.metCriterias) == 0 {
+		return "n/a"
+	}
+
+	var sb strings.Builder
+
+	for i, c := range res.metCriterias {
+		if i > 0 {
+			if c.Connector == CONNECTOR_AND {
+				sb.WriteString(" and ")
+			} else {
+				sb.WriteString(" or ")
+			}
+		}
+		if len(c.Items) > 0 {
+			sb.WriteString(" ( ")
+			sb.WriteString(fmtMetCriteria(c))
+			sb.WriteString(" ) ")
+		} else {
+			sb.WriteString(fmtMetCriteria(c))
+		}
+	}
+
+	return sb.String()
 }
 
 func (res *evalCriteriasResult) unmet() string {
@@ -101,7 +166,7 @@ func (res *evalCriteriasResult) unmet() string {
 }
 
 func evalCriterias(funcs ValueFuncs, ctx *Context, criterias []*Criteria) (*evalCriteriasResult, error) {
-	res := &evalCriteriasResult{ok: false}
+	res := &evalCriteriasResult{ok: false, metCriterias: make([]*Criteria, 0)}
 
 	i := 0
 	l := len(criterias)
@@ -111,11 +176,15 @@ func evalCriterias(funcs ValueFuncs, ctx *Context, criterias []*Criteria) (*eval
 		criterias[0].Connector = CONNECTOR_OR
 	}
 	for i < l {
+		// when not the first and already 'not ok' ignoring AND criterias
 		if i == 0 || res.ok || criterias[i].Connector == CONNECTOR_OR {
 			if len(criterias[i].Items) > 0 {
 				itemsRes, itemsErr := evalCriterias(funcs, ctx, criterias[i].Items)
 				if itemsErr != nil {
 					return itemsRes, itemsErr
+				}
+				if itemsRes.ok {
+					res.metCriterias = append(res.metCriterias, criterias[i])
 				}
 				res.ok = ConnectCondition(res.ok, itemsRes.ok, criterias[i].Connector)
 				if itemsRes.unmetCondition != nil {
@@ -125,8 +194,10 @@ func evalCriterias(funcs ValueFuncs, ctx *Context, criterias []*Criteria) (*eval
 					res.unmetDataSource = itemsRes.unmetDataSource
 					res.unmetDataSourceAlias = itemsRes.unmetDataSourceAlias
 				}
+				if !res.ok {
+					res.metCriterias = make([]*Criteria, 0)
+				}
 			} else {
-				// when not the first and already 'not ok' ignoring AND criterias
 				err := evaluateCriteria(res, funcs, ctx, criterias[i])
 				if err != nil {
 					return res, err
@@ -146,6 +217,9 @@ func evaluateCriteria(res *evalCriteriasResult, funcs ValueFuncs, ctx *Context, 
 	}
 
 	conditionsOk, unmetCondition := EvaluateConditions(ctx, ds, criteria.Conditions)
+	if conditionsOk {
+		res.metCriterias = append(res.metCriterias, criteria)
+	}
 	res.ok = ConnectCondition(res.ok, conditionsOk, criteria.Connector)
 	if unmetCondition != nil {
 		res.unmetCondition = unmetCondition
@@ -153,6 +227,7 @@ func evaluateCriteria(res *evalCriteriasResult, funcs ValueFuncs, ctx *Context, 
 	if !res.ok {
 		res.unmetDataSource = ds
 		res.unmetDataSourceAlias = criteria.DataSource.Alias
+		res.metCriterias = make([]*Criteria, 0)
 	}
 
 	return nil

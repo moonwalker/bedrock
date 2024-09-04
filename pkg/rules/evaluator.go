@@ -10,6 +10,7 @@ type EvalResult struct {
 	Context     *Context      `json:"context"`
 	Unmet       bool          `json:"unmet"`
 	UnmetReason string        `json:"-"`
+	MetReasons  string        `json:"-"`
 	Error       error         `json:"-"`
 	Duration    time.Duration `json:"-"`
 }
