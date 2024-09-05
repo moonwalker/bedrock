@@ -50,6 +50,10 @@ func NewRuleEngine(repo repo.RuleRepo, funcs rules.FuncMap, evaluator rules.Eval
 	return e
 }
 
+func (e *Engine) SetFuncs(funcs rules.FuncMap) {
+	e.funcs = rules.MakeValueFuncs(funcs)
+}
+
 func (e *Engine) ProcessEvents(schedulerPoolURL string) chan *rules.EvalResult {
 	e.schedulerPoolURL = schedulerPoolURL
 	reschan := make(chan *rules.EvalResult)
