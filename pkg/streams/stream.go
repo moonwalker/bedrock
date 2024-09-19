@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -26,6 +27,7 @@ type KeyHistory struct {
 }
 
 type Stream struct {
+	nc                  *nats.Conn
 	streamName          string
 	natsURL             string
 	natsNkeyUser        string
@@ -54,18 +56,24 @@ func (this *Stream) SetCredentialsPath(path string) {
 }
 
 func (this *Stream) natsConnect() (*nats.Conn, error) {
-	// connect with nkeys if specified
-	if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
-		return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
-	}
+	// singleton
+	once := sync.OnceValues(func() (*nats.Conn, error) {
 
-	// connect with credentials if exists
-	if _, err := os.Stat(this.natsCredentialsPath); err == nil {
-		return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
-	}
+		// connect with nkeys if specified
+		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
+			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
+		}
 
-	// regular connection
-	return nats.Connect(this.natsURL)
+		// connect with credentials if exists
+		if _, err := os.Stat(this.natsCredentialsPath); err == nil {
+			return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
+		}
+
+		// regular connection
+		return nats.Connect(this.natsURL)
+	})
+
+	return once()
 }
 
 func (this *Stream) sigHandler(b []byte) ([]byte, error) {
@@ -76,12 +84,15 @@ func (this *Stream) sigHandler(b []byte) ([]byte, error) {
 	return sk.Sign(b)
 }
 
+func (this *Stream) Close() {
+	this.nc.Close()
+}
+
 func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -95,21 +106,19 @@ func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
 	})
 }
 
-func (this *Stream) GetStream(name string) (*nats.Conn, jetstream.Stream, error) {
+func (this *Stream) GetStream(name string) (jetstream.Stream, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	//defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
-		nc.Close()
-		return nil, nil, err
+		return nil, err
 	}
 
 	s, err := js.Stream(context.Background(), name)
-	return nc, s, err
+	return s, err
 }
 
 func (this *Stream) CreateConsumer(stream string, durable string) (jetstream.Consumer, error) {
@@ -120,7 +129,6 @@ func (this *Stream) CreateConsumer(stream string, durable string) (jetstream.Con
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -143,7 +151,6 @@ func (this *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -187,7 +194,6 @@ func (this *Stream) FetchAllMessages(filters []string, startTime *time.Time) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -250,7 +256,6 @@ func (this *Stream) FetchLastMessagePerSubject(filters []string) (map[string][][
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -311,7 +316,6 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -367,7 +371,6 @@ func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, 
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -395,7 +398,6 @@ func (this *Stream) PublishMsg(subject string, payload []byte, publisher string)
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -425,7 +427,6 @@ func (this *Stream) CreateBucket(bucket string, history int, ttl time.Duration) 
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -460,7 +461,6 @@ func (this *Stream) AddKeyValue(bucket string, key string, value []byte) error {
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -491,7 +491,6 @@ func (this *Stream) PutKeyValue(bucket string, key string, value []byte) error {
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -522,7 +521,6 @@ func (this *Stream) DeleteKeyValue(bucket string, key string) error {
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -553,7 +551,6 @@ func (this *Stream) UpdateKeyValue(bucket string, key string, value []byte, revi
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -584,7 +581,6 @@ func (this *Stream) GetValueByKey(bucket string, key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -621,7 +617,6 @@ func (this *Stream) GetKeys(bucket string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -646,13 +641,10 @@ func (this *Stream) GetKeys(bucket string) ([]string, error) {
 	return resp, nil
 }
 
-func (this *Stream) GetKVs(nc *nats.Conn, bucket string) (map[string][]byte, error) {
-	if nc == nil {
-		nc, err := this.natsConnect()
-		if err != nil {
-			return nil, err
-		}
-		defer nc.Close()
+func (this *Stream) GetKVs(bucket string) (map[string][]byte, error) {
+	nc, err := this.natsConnect()
+	if err != nil {
+		return nil, err
 	}
 
 	js, err := jetstream.New(nc)
@@ -688,7 +680,6 @@ func (this *Stream) GetKeyHistory(bucket string, key string) error {
 	if err != nil {
 		return err
 	}
-	defer nc.Close()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
