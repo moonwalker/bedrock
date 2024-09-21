@@ -104,6 +104,8 @@ func TestFetchMessages(t *testing.T) {
 
 	tt := time.Now().Local().Add(-1 * time.Minute * time.Duration(35))
 	jStream := NewStream(natsURL, streamName, "", "")
+
+	jStream.CreateStream(filters)
 	msgs, err := jStream.FetchAllMessages(filters, &tt)
 	if err != nil {
 		t.Fatal(err)

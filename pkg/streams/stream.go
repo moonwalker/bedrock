@@ -316,54 +316,75 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-
-	js, err := jetstream.New(nc)
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := js.Stream(context.Background(), this.streamName)
-	if err != nil {
-		return nil, err
-	}
 	elapsed0 := getElapsed(start0)
 
-	var res []byte
-	cc := jetstream.ConsumerConfig{
-		AckPolicy:      jetstream.AckNonePolicy,
-		MaxAckPending:  MAX_ACK_PENDING,
-		MaxDeliver:     MAX_DELIVERY,
-		DeliverPolicy:  jetstream.DeliverLastPolicy,
-		FilterSubjects: filters,
-	}
-
 	start1 := time.Now()
-	consumer, err := s.CreateOrUpdateConsumer(context.Background(), cc)
+	js, err := jetstream.New(nc)
 	if err != nil {
 		return nil, err
 	}
 	elapsed1 := getElapsed(start1)
 
 	start2 := time.Now()
-	mb, err := consumer.FetchNoWait(1)
+	s, err := js.Stream(context.Background(), this.streamName)
 	if err != nil {
 		return nil, err
 	}
 	elapsed2 := getElapsed(start2)
 
-	for m := range mb.Messages() {
-		res = m.Data()
-		break
+	start3 := time.Now()
+	res, err := s.GetLastMsgForSubject(context.Background(), filters[0])
+	if err != nil {
+		return nil, err
 	}
+	elapsed3 := getElapsed(start3)
 
-	slog.Debug("fetch last message per subject",
+	slog.Debug("get last message for subject",
 		"filters", filters,
-		"create stream", elapsed0,
-		"create consumer", elapsed1,
-		"fetch messages", elapsed2,
+		"this.natsConnect", elapsed0,
+		"jetstream.New", elapsed1,
+		"js.Stream", elapsed2,
+		"s.GetLastMsgForSubject", elapsed3,
 	)
 
-	return res, nil
+	return res.Data, err
+
+	// var res []byte
+	// cc := jetstream.ConsumerConfig{
+	// 	AckPolicy:      jetstream.AckNonePolicy,
+	// 	MaxAckPending:  MAX_ACK_PENDING,
+	// 	MaxDeliver:     MAX_DELIVERY,
+	// 	DeliverPolicy:  jetstream.DeliverLastPolicy,
+	// 	FilterSubjects: filters,
+	// }
+
+	// start1 := time.Now()
+	// consumer, err := s.CreateOrUpdateConsumer(context.Background(), cc)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// elapsed1 := getElapsed(start1)
+
+	// start2 := time.Now()
+	// mb, err := consumer.FetchNoWait(1)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// elapsed2 := getElapsed(start2)
+
+	// for m := range mb.Messages() {
+	// 	res = m.Data()
+	// 	break
+	// }
+
+	// slog.Debug("fetch last message per subject",
+	// 	"filters", filters,
+	// 	"create stream", elapsed0,
+	// 	"create consumer", elapsed1,
+	// 	"fetch messages", elapsed2,
+	// )
+
+	// return res, nil
 }
 
 func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, error) {
