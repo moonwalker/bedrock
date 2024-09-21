@@ -14,9 +14,9 @@ import (
 
 const (
 	FETCH_NO_WAIT   = 100000
-	MAX_ACK_PENDING = -1
-	MAX_DELIVERY    = -1
-	MAX_BYTES       = 1000000000 // 1 GiB
+	MAX_ACK_PENDING = -1 //unlimited
+	MAX_DELIVERY    = -1 // unlimited
+	MAX_BYTES       = -1 // unlimited
 )
 
 type KeyHistory struct {
