@@ -333,10 +333,15 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 	elapsed2 := getElapsed(start2)
 
 	start3 := time.Now()
-	res, err := s.GetLastMsgForSubject(context.Background(), filters[0])
+	var res []byte
+	rm, err := s.GetLastMsgForSubject(context.Background(), filters[0])
 	if err != nil {
+		if err == jetstream.ErrMsgNotFound {
+			return res, nil
+		}
 		return nil, err
 	}
+	res = rm.Data
 	elapsed3 := getElapsed(start3)
 
 	slog.Debug("get last message for subject",
@@ -347,7 +352,7 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 		"s.GetLastMsgForSubject", elapsed3,
 	)
 
-	return res.Data, err
+	return res, err
 
 	// var res []byte
 	// cc := jetstream.ConsumerConfig{
