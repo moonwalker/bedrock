@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	CONN_POOL_SIZE  = 100
 	FETCH_NO_WAIT   = 100000
 	MAX_ACK_PENDING = -1 //unlimited
 	MAX_DELIVERY    = -1 // unlimited
@@ -26,7 +27,9 @@ type KeyHistory struct {
 }
 
 type Stream struct {
-	nc                  *nats.Conn
+	mutex               *sync.RWMutex
+	poolSize            int
+	pool                chan *nats.Conn
 	streamName          string
 	natsURL             string
 	natsNkeyUser        string
@@ -36,6 +39,9 @@ type Stream struct {
 
 func NewStream(url, streamName string) *Stream {
 	return &Stream{
+		mutex:      new(sync.RWMutex),
+		poolSize:   CONN_POOL_SIZE,
+		pool:       make(chan *nats.Conn, CONN_POOL_SIZE),
 		natsURL:    url,
 		streamName: streamName,
 	}
@@ -50,13 +56,8 @@ func (this *Stream) SetCredentialsPath(path string) {
 	this.natsCredentialsPath = path
 }
 
-var (
-	once sync.Once
-)
-
-// singleton
 func (this *Stream) natsConnect() (*nats.Conn, error) {
-	conn := func() (*nats.Conn, error) {
+	connect := func() (*nats.Conn, error) {
 		// connect with nkeys if specified
 		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
 			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
@@ -71,12 +72,26 @@ func (this *Stream) natsConnect() (*nats.Conn, error) {
 		return nats.Connect(this.natsURL)
 	}
 
-	var err error
-	once.Do(func() {
-		this.nc, err = conn()
-	})
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
 
-	return this.nc, err
+	var nc *nats.Conn
+	var err error
+	select {
+	case nc = <-this.pool:
+		// reuse exists pool
+		if nc.IsConnected() != true {
+			// close to be sure
+			nc.Close()
+			// disconnected conn, create new *nats.Conn
+			nc, err = connect()
+		}
+	default:
+		// create *nats.Conn
+		nc, err = connect()
+	}
+
+	return nc, err
 }
 
 func (this *Stream) sigHandler(b []byte) ([]byte, error) {
@@ -88,7 +103,15 @@ func (this *Stream) sigHandler(b []byte) ([]byte, error) {
 }
 
 func (this *Stream) Close() {
-	this.nc.Close()
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+
+	close(this.pool)
+	for nc := range this.pool {
+		nc.Close()
+	}
+
+	this.pool = make(chan *nats.Conn, CONN_POOL_SIZE)
 }
 
 func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {

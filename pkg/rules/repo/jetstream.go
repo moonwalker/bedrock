@@ -29,7 +29,7 @@ type jetstreamRuleRepo struct {
 }
 
 func NewJetstreamRuleRepo(natsURL string) (RuleRepo, error) {
-	jsInst := &jetstreamRuleRepo{STREAM_NAME, RULE_SUBJECT, streams.NewStream(natsURL, STREAM_NAME, "", "")}
+	jsInst := &jetstreamRuleRepo{STREAM_NAME, RULE_SUBJECT, streams.NewStream(natsURL, STREAM_NAME)}
 	err := jsInst.init()
 	return jsInst, err
 }
