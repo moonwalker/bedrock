@@ -32,16 +32,12 @@ type Stream struct {
 	natsNkeyUser        string
 	natsNkeySeed        string
 	natsCredentialsPath string
-	EntriesPrefix       string
-	SchemasPrefix       string
 }
 
-func NewStream(url, streamName, entriesPrefix, schemasPrefix string) *Stream {
+func NewStream(url, streamName string) *Stream {
 	return &Stream{
-		natsURL:       url,
-		streamName:    streamName,
-		EntriesPrefix: entriesPrefix,
-		SchemasPrefix: schemasPrefix,
+		natsURL:    url,
+		streamName: streamName,
 	}
 }
 
@@ -54,10 +50,13 @@ func (this *Stream) SetCredentialsPath(path string) {
 	this.natsCredentialsPath = path
 }
 
-func (this *Stream) natsConnect() (*nats.Conn, error) {
-	// singleton
-	once := sync.OnceValues(func() (*nats.Conn, error) {
+var (
+	once sync.Once
+)
 
+// singleton
+func (this *Stream) natsConnect() (*nats.Conn, error) {
+	conn := func() (*nats.Conn, error) {
 		// connect with nkeys if specified
 		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
 			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
@@ -70,9 +69,14 @@ func (this *Stream) natsConnect() (*nats.Conn, error) {
 
 		// regular connection
 		return nats.Connect(this.natsURL)
+	}
+
+	var err error
+	once.Do(func() {
+		this.nc, err = conn()
 	})
 
-	return once()
+	return this.nc, err
 }
 
 func (this *Stream) sigHandler(b []byte) ([]byte, error) {

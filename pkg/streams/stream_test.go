@@ -13,8 +13,18 @@ import (
 )
 
 var (
-	natsURL = nats.DefaultURL
+	natsURL    = nats.DefaultURL
+	streamName = "TEST_STREAM"
 )
+
+// $ go test -run TestNatsConnect -count=1 -v pkg/streams/*.go
+func TestNatsConnect(t *testing.T) {
+	js := NewStream(natsURL, streamName)
+
+	js.CreateStream([]string{"foo.*"})
+	js.CreateStream([]string{"foo.*"})
+	js.CreateStream([]string{"foo.*"})
+}
 
 func TestCreateKV(t *testing.T) {
 	bucket := "testbucket"
@@ -56,13 +66,12 @@ func TestCreateKV(t *testing.T) {
 
 func TestConsume(t *testing.T) {
 	svc := "servicename"
-	streamName := "TEST_STREAM"
 
 	consumer_subjects := []string{"FOO.*"}
 	publish_subject := "FOO.TEST1"
 	publish_count := 10
 
-	jStream := NewStream(natsURL, streamName, "", "")
+	jStream := NewStream(natsURL, streamName)
 	_, err := jStream.CreateStream(consumer_subjects)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +112,7 @@ func TestFetchMessages(t *testing.T) {
 	filters := []string{"transaction.*.balance_transaction"}
 
 	tt := time.Now().Local().Add(-1 * time.Minute * time.Duration(35))
-	jStream := NewStream(natsURL, streamName, "", "")
+	jStream := NewStream(natsURL, streamName)
 
 	jStream.CreateStream(filters)
 	msgs, err := jStream.FetchAllMessages(filters, &tt)
