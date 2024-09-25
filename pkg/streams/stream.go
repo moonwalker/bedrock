@@ -2,6 +2,7 @@ package streams
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"sync"
@@ -125,11 +126,21 @@ func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
 		return nil, err
 	}
 
-	return js.CreateStream(context.Background(), jetstream.StreamConfig{
-		Name:     this.streamName,
-		Subjects: subjects,
-		MaxBytes: MAX_BYTES,
-	})
+	s, err := js.Stream(context.Background(), this.streamName)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrStreamNotFound) {
+			s, err = js.CreateStream(context.Background(), jetstream.StreamConfig{
+				Name:     this.streamName,
+				Subjects: subjects,
+				MaxBytes: MAX_BYTES,
+			})
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return s, nil
 }
 
 func (this *Stream) GetStream(name string) (jetstream.Stream, error) {
