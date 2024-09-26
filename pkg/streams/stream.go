@@ -28,6 +28,7 @@ type KeyHistory struct {
 }
 
 type Stream struct {
+	nc                  *nats.Conn
 	mutex               *sync.RWMutex
 	poolSize            int
 	pool                chan *nats.Conn
@@ -58,6 +59,27 @@ func (this *Stream) SetCredentialsPath(path string) {
 }
 
 func (this *Stream) natsConnect() (*nats.Conn, error) {
+	// singleton
+	once := sync.OnceValues(func() (*nats.Conn, error) {
+
+		// connect with nkeys if specified
+		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
+			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
+		}
+
+		// connect with credentials if exists
+		if _, err := os.Stat(this.natsCredentialsPath); err == nil {
+			return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
+		}
+
+		// regular connection
+		return nats.Connect(this.natsURL)
+	})
+
+	return once()
+}
+
+func (this *Stream) natsConnectPool() (*nats.Conn, error) {
 	connect := func() (*nats.Conn, error) {
 		// connect with nkeys if specified
 		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
@@ -104,6 +126,10 @@ func (this *Stream) sigHandler(b []byte) ([]byte, error) {
 }
 
 func (this *Stream) Close() {
+	// this.nc.Close()
+}
+
+func (this *Stream) ClosePool() {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -449,7 +475,6 @@ func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, 
 	slog.Debug("publish message",
 		"elapsed", elapsed,
 		"subject", subject,
-		"streamName", this.streamName,
 	)
 
 	return pa, nil
