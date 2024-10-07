@@ -142,6 +142,14 @@ func (this *Stream) ClosePool() {
 }
 
 func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
+	return this.CreateStreamWithConfig(subjects, jetstream.StreamConfig{
+		Name:     this.streamName,
+		Subjects: subjects,
+		MaxBytes: MAX_BYTES,
+	})
+}
+
+func (this *Stream) CreateStreamWithConfig(subjects []string, config jetstream.StreamConfig) (jetstream.Stream, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
 		return nil, err
@@ -152,14 +160,14 @@ func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
 		return nil, err
 	}
 
+	if config.Name == "" {
+		config.Name = this.streamName
+	}
+
 	s, err := js.Stream(context.Background(), this.streamName)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
-			s, err = js.CreateStream(context.Background(), jetstream.StreamConfig{
-				Name:     this.streamName,
-				Subjects: subjects,
-				MaxBytes: MAX_BYTES,
-			})
+			s, err = js.CreateStream(context.Background(), config)
 		}
 		if err != nil {
 			return nil, err
