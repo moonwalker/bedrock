@@ -163,6 +163,9 @@ func (this *Stream) CreateStreamWithConfig(subjects []string, config jetstream.S
 	if config.Name == "" {
 		config.Name = this.streamName
 	}
+	if config.Subjects == nil {
+		config.Subjects = subjects
+	}
 
 	s, err := js.Stream(context.Background(), this.streamName)
 	if err != nil {
