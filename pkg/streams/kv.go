@@ -9,18 +9,18 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-func (this *Stream) CreateBucket(bucket string, history int, ttl time.Duration) error {
+func (this *Stream) CreateBucket(bucket string, history int, ttl time.Duration) (jetstream.KeyValue, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	js, err := jetstream.New(nc)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = js.KeyValue(context.Background(), bucket)
+	kv, err := js.KeyValue(context.Background(), bucket)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrBucketNotFound) {
 			cfg := jetstream.KeyValueConfig{
@@ -33,14 +33,14 @@ func (this *Stream) CreateBucket(bucket string, history int, ttl time.Duration) 
 			if ttl != 0 {
 				cfg.TTL = ttl
 			}
-			_, err = js.CreateKeyValue(context.Background(), cfg)
+			kv, err = js.CreateKeyValue(context.Background(), cfg)
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return kv, nil
 }
 
 func (this *Stream) AddKeyValue(bucket string, key string, value []byte) error {
