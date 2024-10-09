@@ -491,6 +491,32 @@ func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, 
 	return pa, nil
 }
 
+func (this *Stream) PublishUsePool(subject string, payload []byte) (*jetstream.PubAck, error) {
+	nc, err := this.natsConnectPool()
+	if err != nil {
+		return nil, err
+	}
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return nil, err
+	}
+
+	start := time.Now()
+	pa, err := js.Publish(context.Background(), subject, payload)
+	if err != nil {
+		return nil, err
+	}
+	elapsed := getElapsed(start)
+
+	slog.Debug("publish message",
+		"elapsed", elapsed,
+		"subject", subject,
+	)
+
+	return pa, nil
+}
+
 func (this *Stream) PublishMsg(subject string, payload []byte, publisher string) (*jetstream.PubAck, error) {
 	nc, err := this.natsConnect()
 	if err != nil {
