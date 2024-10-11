@@ -49,61 +49,61 @@ func NewStream(url, streamName string) *Stream {
 	}
 }
 
-func (this *Stream) SetNKeys(user, seed string) {
-	this.natsNkeyUser = user
-	this.natsNkeySeed = seed
+func (s *Stream) SetNKeys(user, seed string) {
+	s.natsNkeyUser = user
+	s.natsNkeySeed = seed
 }
 
-func (this *Stream) SetCredentialsPath(path string) {
-	this.natsCredentialsPath = path
+func (s *Stream) SetCredentialsPath(path string) {
+	s.natsCredentialsPath = path
 }
 
-func (this *Stream) natsConnect() (*nats.Conn, error) {
+func (s *Stream) natsConnect() (*nats.Conn, error) {
 	// singleton
 	once := sync.OnceValues(func() (*nats.Conn, error) {
 
 		// connect with nkeys if specified
-		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
-			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
+		if len(s.natsNkeyUser) > 0 && len(s.natsNkeySeed) > 0 {
+			return nats.Connect(s.natsURL, nats.Nkey(s.natsNkeyUser, s.sigHandler))
 		}
 
 		// connect with credentials if exists
-		if _, err := os.Stat(this.natsCredentialsPath); err == nil {
-			return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
+		if _, err := os.Stat(s.natsCredentialsPath); err == nil {
+			return nats.Connect(s.natsURL, nats.UserCredentials(s.natsCredentialsPath))
 		}
 
 		// regular connection
-		return nats.Connect(this.natsURL)
+		return nats.Connect(s.natsURL)
 	})
 
 	return once()
 }
 
-func (this *Stream) natsConnectPool() (*nats.Conn, error) {
+func (s *Stream) natsConnectPool() (*nats.Conn, error) {
 	connect := func() (*nats.Conn, error) {
 		// connect with nkeys if specified
-		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
-			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
+		if len(s.natsNkeyUser) > 0 && len(s.natsNkeySeed) > 0 {
+			return nats.Connect(s.natsURL, nats.Nkey(s.natsNkeyUser, s.sigHandler))
 		}
 
 		// connect with credentials if exists
-		if _, err := os.Stat(this.natsCredentialsPath); err == nil {
-			return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
+		if _, err := os.Stat(s.natsCredentialsPath); err == nil {
+			return nats.Connect(s.natsURL, nats.UserCredentials(s.natsCredentialsPath))
 		}
 
 		// regular connection
-		return nats.Connect(this.natsURL)
+		return nats.Connect(s.natsURL)
 	}
 
-	this.mutex.RLock()
-	defer this.mutex.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
 	var nc *nats.Conn
 	var err error
 	select {
-	case nc = <-this.pool:
+	case nc = <-s.pool:
 		// reuse exists pool
-		if nc.IsConnected() != true {
+		if !nc.IsConnected() {
 			// close to be sure
 			nc.Close()
 			// disconnected conn, create new *nats.Conn
@@ -117,40 +117,40 @@ func (this *Stream) natsConnectPool() (*nats.Conn, error) {
 	return nc, err
 }
 
-func (this *Stream) sigHandler(b []byte) ([]byte, error) {
-	sk, err := nkeys.FromSeed([]byte(this.natsNkeySeed))
+func (s *Stream) sigHandler(b []byte) ([]byte, error) {
+	sk, err := nkeys.FromSeed([]byte(s.natsNkeySeed))
 	if err != nil {
 		return nil, err
 	}
 	return sk.Sign(b)
 }
 
-func (this *Stream) Close() {
-	// this.nc.Close()
+func (s *Stream) Close() {
+	// s.nc.Close()
 }
 
-func (this *Stream) ClosePool() {
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
+func (s *Stream) ClosePool() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	close(this.pool)
-	for nc := range this.pool {
+	close(s.pool)
+	for nc := range s.pool {
 		nc.Close()
 	}
 
-	this.pool = make(chan *nats.Conn, CONN_POOL_SIZE)
+	s.pool = make(chan *nats.Conn, CONN_POOL_SIZE)
 }
 
-func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
-	return this.CreateStreamWithConfig(subjects, jetstream.StreamConfig{
-		Name:     this.streamName,
+func (s *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
+	return s.CreateStreamWithConfig(subjects, jetstream.StreamConfig{
+		Name:     s.streamName,
 		Subjects: subjects,
 		MaxBytes: MAX_BYTES,
 	})
 }
 
-func (this *Stream) CreateStreamWithConfig(subjects []string, config jetstream.StreamConfig) (jetstream.Stream, error) {
-	nc, err := this.natsConnect()
+func (s *Stream) CreateStreamWithConfig(subjects []string, config jetstream.StreamConfig) (jetstream.Stream, error) {
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -161,27 +161,27 @@ func (this *Stream) CreateStreamWithConfig(subjects []string, config jetstream.S
 	}
 
 	if config.Name == "" {
-		config.Name = this.streamName
+		config.Name = s.streamName
 	}
 	if config.Subjects == nil {
 		config.Subjects = subjects
 	}
 
-	s, err := js.Stream(context.Background(), this.streamName)
+	j, err := js.Stream(context.Background(), s.streamName)
 	if err != nil {
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
-			s, err = js.CreateStream(context.Background(), config)
+			j, err = js.CreateStream(context.Background(), config)
 		}
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return s, nil
+	return j, nil
 }
 
-func (this *Stream) GetStream(name string) (jetstream.Stream, error) {
-	nc, err := this.natsConnect()
+func (s *Stream) GetStream(name string) (jetstream.Stream, error) {
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -191,15 +191,15 @@ func (this *Stream) GetStream(name string) (jetstream.Stream, error) {
 		return nil, err
 	}
 
-	s, err := js.Stream(context.Background(), name)
-	return s, err
+	j, err := js.Stream(context.Background(), name)
+	return j, err
 }
 
-func (this *Stream) CreateConsumer(stream string, durable string) (jetstream.Consumer, error) {
+func (s *Stream) CreateConsumer(stream string, durable string) (jetstream.Consumer, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	nc, err := this.natsConnect()
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -209,19 +209,19 @@ func (this *Stream) CreateConsumer(stream string, durable string) (jetstream.Con
 		return nil, err
 	}
 
-	s, err := js.Stream(ctx, stream)
+	j, err := js.Stream(ctx, stream)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.CreateOrUpdateConsumer(context.Background(), jetstream.ConsumerConfig{
+	return j.CreateOrUpdateConsumer(context.Background(), jetstream.ConsumerConfig{
 		Durable:   durable,
 		AckPolicy: jetstream.AckExplicitPolicy,
 	})
 }
 
-func (this *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte, error) {
-	nc, err := this.natsConnect()
+func (s *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte, error) {
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -231,13 +231,13 @@ func (this *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte
 		return nil, err
 	}
 
-	s, err := js.Stream(context.Background(), stream)
+	j, err := js.Stream(context.Background(), stream)
 	if err != nil {
 		return nil, err
 	}
 
 	start0 := time.Now()
-	m, err := s.GetMsg(context.Background(), sequence)
+	m, err := j.GetMsg(context.Background(), sequence)
 	if err != nil {
 		return nil, err
 	}
@@ -248,9 +248,9 @@ func (this *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte
 	return m.Data, nil
 }
 
-func (this *Stream) GetMessageByID(s jetstream.Stream, sequence uint64) ([]byte, error) {
+func (s *Stream) GetMessageByID(j jetstream.Stream, sequence uint64) ([]byte, error) {
 	start0 := time.Now()
-	m, err := s.GetMsg(context.Background(), sequence)
+	m, err := j.GetMsg(context.Background(), sequence)
 	if err != nil {
 		return nil, err
 	}
@@ -261,9 +261,9 @@ func (this *Stream) GetMessageByID(s jetstream.Stream, sequence uint64) ([]byte,
 	return m.Data, nil
 }
 
-func (this *Stream) FetchAllMessages(filters []string, startTime *time.Time) ([][]byte, error) {
+func (s *Stream) FetchAll(filters []string, startTime *time.Time) ([][]byte, error) {
 	start0 := time.Now()
-	nc, err := this.natsConnect()
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,7 @@ func (this *Stream) FetchAllMessages(filters []string, startTime *time.Time) ([]
 		return nil, err
 	}
 
-	s, err := js.Stream(context.Background(), this.streamName)
+	j, err := js.Stream(context.Background(), s.streamName)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func (this *Stream) FetchAllMessages(filters []string, startTime *time.Time) ([]
 	}
 
 	start1 := time.Now()
-	consumer, err := s.CreateOrUpdateConsumer(context.Background(), cc)
+	consumer, err := j.CreateOrUpdateConsumer(context.Background(), cc)
 	if err != nil {
 		return nil, err
 	}
@@ -323,9 +323,9 @@ func (this *Stream) FetchAllMessages(filters []string, startTime *time.Time) ([]
 	return res, nil
 }
 
-func (this *Stream) FetchLastMessagePerSubject(filters []string) (map[string][][]byte, error) {
+func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	start0 := time.Now()
-	nc, err := this.natsConnect()
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +335,7 @@ func (this *Stream) FetchLastMessagePerSubject(filters []string) (map[string][][
 		return nil, err
 	}
 
-	s, err := js.Stream(context.Background(), this.streamName)
+	j, err := js.Stream(context.Background(), s.streamName)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func (this *Stream) FetchLastMessagePerSubject(filters []string) (map[string][][
 	}
 
 	start1 := time.Now()
-	consumer, err := s.CreateOrUpdateConsumer(context.Background(), cc)
+	consumer, err := j.CreateOrUpdateConsumer(context.Background(), cc)
 	if err != nil {
 		return nil, err
 	}
@@ -383,9 +383,9 @@ func (this *Stream) FetchLastMessagePerSubject(filters []string) (map[string][][
 	return res, nil
 }
 
-func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) {
+func (s *Stream) LastBySubject(filters []string) ([]byte, error) {
 	start0 := time.Now()
-	nc, err := this.natsConnect()
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 	elapsed1 := getElapsed(start1)
 
 	start2 := time.Now()
-	s, err := js.Stream(context.Background(), this.streamName)
+	j, err := js.Stream(context.Background(), s.streamName)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +407,7 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 
 	start3 := time.Now()
 	var res []byte
-	rm, err := s.GetLastMsgForSubject(context.Background(), filters[0])
+	rm, err := j.GetLastMsgForSubject(context.Background(), filters[0])
 	if err != nil {
 		if err == jetstream.ErrMsgNotFound {
 			return res, nil
@@ -465,8 +465,8 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 	// return res, nil
 }
 
-func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, error) {
-	nc, err := this.natsConnect()
+func (s *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, error) {
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
@@ -491,8 +491,8 @@ func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, 
 	return pa, nil
 }
 
-func (this *Stream) PublishUsePool(subject string, payload []byte) (*jetstream.PubAck, error) {
-	nc, err := this.natsConnectPool()
+func (s *Stream) PublishUsePool(subject string, payload []byte) (*jetstream.PubAck, error) {
+	nc, err := s.natsConnectPool()
 	if err != nil {
 		return nil, err
 	}
@@ -517,8 +517,8 @@ func (this *Stream) PublishUsePool(subject string, payload []byte) (*jetstream.P
 	return pa, nil
 }
 
-func (this *Stream) PublishMsg(subject string, payload []byte, publisher string) (*jetstream.PubAck, error) {
-	nc, err := this.natsConnect()
+func (s *Stream) PublishMsg(subject string, payload []byte, publisher string) (*jetstream.PubAck, error) {
+	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
