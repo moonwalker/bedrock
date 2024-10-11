@@ -125,7 +125,7 @@ func TestFetchMessages(t *testing.T) {
 	}
 
 	jStream.CreateStream(filters)
-	msgs, err := jStream.FetchAllMessages(filters, &tt)
+	msgs, err := jStream.FetchAll(filters, &tt)
 	if err != nil {
 		t.Fatal(err)
 	}
