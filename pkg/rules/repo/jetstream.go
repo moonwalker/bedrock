@@ -48,7 +48,7 @@ func (s *jetstreamRuleRepo) Get(id string) (*rules.Rule, error) {
 	if err != nil {
 		return nil, err
 	}
-	val, err := s.jStream.FetchLastMessageBySubject([]string{key})
+	val, err := s.jStream.LastBySubject([]string{key})
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (s *jetstreamRuleRepo) RemoveAll() error {
 }
 
 func (s *jetstreamRuleRepo) Each(skip int, limit int, fn func(rule *rules.Rule)) error {
-	rs, err := s.jStream.FetchLastMessagePerSubject([]string{ruleFilter})
+	rs, err := s.jStream.LastPerSubject([]string{ruleFilter})
 	if err != nil {
 		return nil
 	}
@@ -130,7 +130,7 @@ func (s *jetstreamRuleRepo) Each(skip int, limit int, fn func(rule *rules.Rule))
 }
 
 func (s *jetstreamRuleRepo) Count() int {
-	rs, err := s.jStream.FetchLastMessagePerSubject([]string{ruleFilter})
+	rs, err := s.jStream.LastPerSubject([]string{ruleFilter})
 	if err != nil {
 		return 0
 	}
