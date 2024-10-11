@@ -4,17 +4,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"os"
-	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/nats-io/nkeys"
 )
 
 const (
-	CONN_POOL_SIZE  = 100
 	FETCH_NO_WAIT   = 100000
 	MAX_ACK_PENDING = -1 //unlimited
 	MAX_DELIVERY    = -1 // unlimited
@@ -28,117 +24,40 @@ type KeyHistory struct {
 }
 
 type Stream struct {
-	nc                  *nats.Conn
-	mutex               *sync.RWMutex
-	poolSize            int
-	pool                chan *nats.Conn
-	streamName          string
-	natsURL             string
-	natsNkeyUser        string
-	natsNkeySeed        string
-	natsCredentialsPath string
+	nc         *nats.Conn
+	streamName string
+	connPool   *NatsConnPool
 }
 
-func NewStream(url, streamName string) *Stream {
+func NewStream(url string, streamName string) (*Stream, error) {
+	nc, err := nats.Connect(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Stream{nc: nc, streamName: streamName}, nil
+}
+
+func NewStreamWithConn(nc *nats.Conn, streamName string) *Stream {
 	return &Stream{
-		mutex:      new(sync.RWMutex),
-		poolSize:   CONN_POOL_SIZE,
-		pool:       make(chan *nats.Conn, CONN_POOL_SIZE),
-		natsURL:    url,
+		nc:         nc,
 		streamName: streamName,
 	}
 }
 
-func (this *Stream) SetNKeys(user, seed string) {
-	this.natsNkeyUser = user
-	this.natsNkeySeed = seed
-}
-
-func (this *Stream) SetCredentialsPath(path string) {
-	this.natsCredentialsPath = path
+func NewStreamWithConnPool(url string, streamName string, options ...nats.Option) *Stream {
+	return &Stream{
+		streamName: streamName,
+		connPool:   NewNatsConnPool(url, options...),
+	}
 }
 
 func (this *Stream) natsConnect() (*nats.Conn, error) {
-	// singleton
-	once := sync.OnceValues(func() (*nats.Conn, error) {
-
-		// connect with nkeys if specified
-		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
-			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
-		}
-
-		// connect with credentials if exists
-		if _, err := os.Stat(this.natsCredentialsPath); err == nil {
-			return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
-		}
-
-		// regular connection
-		return nats.Connect(this.natsURL)
-	})
-
-	return once()
-}
-
-func (this *Stream) natsConnectPool() (*nats.Conn, error) {
-	connect := func() (*nats.Conn, error) {
-		// connect with nkeys if specified
-		if len(this.natsNkeyUser) > 0 && len(this.natsNkeySeed) > 0 {
-			return nats.Connect(this.natsURL, nats.Nkey(this.natsNkeyUser, this.sigHandler))
-		}
-
-		// connect with credentials if exists
-		if _, err := os.Stat(this.natsCredentialsPath); err == nil {
-			return nats.Connect(this.natsURL, nats.UserCredentials(this.natsCredentialsPath))
-		}
-
-		// regular connection
-		return nats.Connect(this.natsURL)
+	if this.nc != nil {
+		return this.nc, nil
 	}
 
-	this.mutex.RLock()
-	defer this.mutex.RUnlock()
-
-	var nc *nats.Conn
-	var err error
-	select {
-	case nc = <-this.pool:
-		// reuse exists pool
-		if nc.IsConnected() != true {
-			// close to be sure
-			nc.Close()
-			// disconnected conn, create new *nats.Conn
-			nc, err = connect()
-		}
-	default:
-		// create *nats.Conn
-		nc, err = connect()
-	}
-
-	return nc, err
-}
-
-func (this *Stream) sigHandler(b []byte) ([]byte, error) {
-	sk, err := nkeys.FromSeed([]byte(this.natsNkeySeed))
-	if err != nil {
-		return nil, err
-	}
-	return sk.Sign(b)
-}
-
-func (this *Stream) Close() {
-	// this.nc.Close()
-}
-
-func (this *Stream) ClosePool() {
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
-
-	close(this.pool)
-	for nc := range this.pool {
-		nc.Close()
-	}
-
-	this.pool = make(chan *nats.Conn, CONN_POOL_SIZE)
+	return this.connPool.GetConnection()
 }
 
 func (this *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
@@ -426,73 +345,10 @@ func (this *Stream) FetchLastMessageBySubject(filters []string) ([]byte, error) 
 	)
 
 	return res, err
-
-	// var res []byte
-	// cc := jetstream.ConsumerConfig{
-	// 	AckPolicy:      jetstream.AckNonePolicy,
-	// 	MaxAckPending:  MAX_ACK_PENDING,
-	// 	MaxDeliver:     MAX_DELIVERY,
-	// 	DeliverPolicy:  jetstream.DeliverLastPolicy,
-	// 	FilterSubjects: filters,
-	// }
-
-	// start1 := time.Now()
-	// consumer, err := s.CreateOrUpdateConsumer(context.Background(), cc)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// elapsed1 := getElapsed(start1)
-
-	// start2 := time.Now()
-	// mb, err := consumer.FetchNoWait(1)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// elapsed2 := getElapsed(start2)
-
-	// for m := range mb.Messages() {
-	// 	res = m.Data()
-	// 	break
-	// }
-
-	// slog.Debug("fetch last message per subject",
-	// 	"filters", filters,
-	// 	"create stream", elapsed0,
-	// 	"create consumer", elapsed1,
-	// 	"fetch messages", elapsed2,
-	// )
-
-	// return res, nil
 }
 
 func (this *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, error) {
 	nc, err := this.natsConnect()
-	if err != nil {
-		return nil, err
-	}
-
-	js, err := jetstream.New(nc)
-	if err != nil {
-		return nil, err
-	}
-
-	start := time.Now()
-	pa, err := js.Publish(context.Background(), subject, payload)
-	if err != nil {
-		return nil, err
-	}
-	elapsed := getElapsed(start)
-
-	slog.Debug("publish message",
-		"elapsed", elapsed,
-		"subject", subject,
-	)
-
-	return pa, nil
-}
-
-func (this *Stream) PublishUsePool(subject string, payload []byte) (*jetstream.PubAck, error) {
-	nc, err := this.natsConnectPool()
 	if err != nil {
 		return nil, err
 	}
