@@ -53,6 +53,10 @@ func NewStreamWithConnPool(url string, streamName string, options ...nats.Option
 }
 
 func (s *Stream) natsConnect() (*nats.Conn, error) {
+	if s.nc == nil && s.connPool == nil {
+		return nil, errors.New("nats connection not specified")
+	}
+
 	if s.nc != nil {
 		return s.nc, nil
 	}
