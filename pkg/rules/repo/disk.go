@@ -78,3 +78,7 @@ func (s *diskRuleRepo) Each(skip int, limit int, fn func(rule *rules.Rule)) erro
 		return nil
 	})
 }
+
+func (s *diskRuleRepo) Close() {
+	// no op
+}
