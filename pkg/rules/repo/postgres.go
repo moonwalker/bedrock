@@ -184,3 +184,7 @@ func (s *postgresRuleRepo) Active() (active int) {
 	db.Model(&dbRule{}).Where("rule->'active' = ?", true).Count(&active)
 	return
 }
+
+func (s *postgresRuleRepo) Close() {
+	// no op
+}

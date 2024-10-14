@@ -67,3 +67,7 @@ func (s *inMemoryRuleRepo) Each(skip int, limit int, fn func(rule *rules.Rule)) 
 	}
 	return nil
 }
+
+func (s *inMemoryRuleRepo) Close() {
+	// no op
+}

@@ -115,6 +115,10 @@ func (s *redisRuleRepo) Active() int {
 	return count
 }
 
+func (s *redisRuleRepo) Close() {
+	// no op
+}
+
 func RedisFmtKey(id string, prefix string) (string, error) {
 	if len(id) == 0 {
 		return "", errors.New("id not specified")

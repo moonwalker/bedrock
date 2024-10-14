@@ -151,6 +151,10 @@ func (s *jetstreamRuleRepo) Active() int {
 	return count
 }
 
+func (s *jetstreamRuleRepo) Close() {
+	s.jStream.Close()
+}
+
 // helpers
 
 func FmtSubjectKey(id string, fmtSubject string) (string, error) {

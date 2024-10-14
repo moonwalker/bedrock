@@ -18,6 +18,7 @@ type RuleRepo interface {
 	Each(skip int, limit int, fn func(rule *rules.Rule)) error
 	Count() int
 	Active() int
+	Close()
 }
 
 func isJson(data []byte) bool {

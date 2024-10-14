@@ -12,6 +12,7 @@ import (
 
 func TestPostgresRuleRepo(t *testing.T) {
 	repo, err := NewPostgresRuleRepo("postgres://postgres@localhost?sslmode=disable")
+	defer repo.Close()
 	assert.Nil(t, err)
 	assert.NotNil(t, repo)
 
