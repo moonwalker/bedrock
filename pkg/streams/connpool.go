@@ -53,14 +53,19 @@ func (this *NatsConnPool) GetConnection() (*nats.Conn, error) {
 	return nc, err
 }
 
-func (this *NatsConnPool) Close() {
+func (this *NatsConnPool) Close() error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
 	close(this.pool)
 	for nc := range this.pool {
-		nc.Close()
+		err := nc.Drain()
+		if err != nil {
+			return err
+		}
 	}
 
 	this.pool = make(chan *nats.Conn, CONN_POOL_SIZE)
+
+	return nil
 }

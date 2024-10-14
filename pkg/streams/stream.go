@@ -64,6 +64,16 @@ func (s *Stream) natsConnect() (*nats.Conn, error) {
 	return s.connPool.GetConnection()
 }
 
+func (s *Stream) Close() error {
+	if s.nc != nil {
+		return s.nc.Drain()
+	}
+	if s.connPool != nil {
+		return s.connPool.Close()
+	}
+	return nil
+}
+
 func (s *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
 	return s.CreateStreamWithConfig(subjects, jetstream.StreamConfig{
 		Name:     s.streamName,
