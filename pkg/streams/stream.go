@@ -82,13 +82,30 @@ func (s *Stream) CreateStream(subjects []string) (jetstream.Stream, error) {
 	})
 }
 
+func (s *Stream) CreateStreamWithDomain(domain string, subjects []string) (jetstream.Stream, error) {
+	return s.CreateStreamWithDomainConfig(domain, subjects, jetstream.StreamConfig{
+		Name:     s.streamName,
+		Subjects: subjects,
+		MaxBytes: MAX_BYTES,
+	})
+}
+
 func (s *Stream) CreateStreamWithConfig(subjects []string, config jetstream.StreamConfig) (jetstream.Stream, error) {
+	return s.CreateStreamWithDomainConfig("", subjects, config)
+}
+
+func (s *Stream) CreateStreamWithDomainConfig(domain string, subjects []string, config jetstream.StreamConfig) (jetstream.Stream, error) {
 	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
 	}
 
-	js, err := jetstream.New(nc)
+	var js jetstream.JetStream
+	if len(domain) > 0 {
+		js, err = jetstream.NewWithDomain(nc, domain)
+	} else {
+		js, err = jetstream.New(nc)
+	}
 	if err != nil {
 		return nil, err
 	}
