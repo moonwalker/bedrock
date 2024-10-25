@@ -408,5 +408,7 @@ func interpolateStringArgs(ctx *Context, value string) string {
 
 	// here it's possible that "\n" is actually the escaped version of a line break character
 	// replace these with real line breaks by searching for the escaped version and replacing with the non escaped version
-	return strings.Replace(text, `\n`, "\n", -1)
+	// in html/template package apostrophes are automatically escaped to prevent potential cross-site scripting vulnerabilities
+	// so we need to unescape them
+	return strings.NewReplacer(`\n`, "\n", "&#39;", "'", "&#34;", `"`).Replace(text)
 }
