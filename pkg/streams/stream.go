@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	FETCH_NO_WAIT   = 100000
+	FETCH_NO_WAIT   = 1000000
 	MAX_ACK_PENDING = -1 //unlimited
 	MAX_DELIVERY    = -1 // unlimited
 	MAX_BYTES       = -1 // unlimited
