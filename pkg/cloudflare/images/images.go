@@ -13,10 +13,7 @@ import (
 	"log/slog"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/moonwalker/bedrock/pkg/env"
 )
-
-var CflAccountHash = env.Must("CFL_ACCOUNT_HASH")
 
 const (
 	apiurl      = "https://api.cloudflare.com/client/v4/accounts/%s/images/v1" // cloudflare api url
@@ -89,7 +86,7 @@ func Exists(cflAccount, cflImagesToken, imageID string) (bool, error) {
 	return resp.Success, nil
 }
 
-func Upload(cflAccount, cflImagesToken, id string, imageContent []byte, imageURL string) (*ImageUploadInfo, error) {
+func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent []byte, imageURL string) (*ImageUploadInfo, error) {
 	url := fmt.Sprintf(apiurl, cflAccount)
 
 	form := map[string]string{"id": id}
@@ -119,7 +116,7 @@ func Upload(cflAccount, cflImagesToken, id string, imageContent []byte, imageURL
 
 	res := &ImageUploadInfo{
 		Filename: p.Name,
-		ImageUrl: fmt.Sprintf(imageCDNFmt, CflAccountHash, p.Name),
+		ImageUrl: fmt.Sprintf(imageCDNFmt, cflAccountHash, p.Name),
 	}
 	if imageContent != nil {
 		mime := mimetype.Detect(imageContent)
