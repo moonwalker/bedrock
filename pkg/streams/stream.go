@@ -404,6 +404,25 @@ func (s *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, err
 	return pa, nil
 }
 
+func (s *Stream) PurgeSubject(subject string) error {
+	nc, err := s.natsConnect()
+	if err != nil {
+		return err
+	}
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return err
+	}
+
+	j, err := js.Stream(context.Background(), s.streamName)
+	if err != nil {
+		return err
+	}
+
+	return j.Purge(context.Background(), jetstream.WithPurgeSubject(subject))
+}
+
 func (s *Stream) PublishMsg(subject string, payload []byte, publisher string) (*jetstream.PubAck, error) {
 	nc, err := s.natsConnect()
 	if err != nil {
@@ -422,6 +441,33 @@ func (s *Stream) PublishMsg(subject string, payload []byte, publisher string) (*
 		Header: nats.Header{
 			"publishedBy": []string{publisher},
 		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	elapsed := getElapsed(start)
+
+	slog.Debug("publish message", "elapsed", elapsed)
+
+	return pa, nil
+}
+
+func (s *Stream) PublishMsgWithHeader(subject string, payload []byte, header map[string][]string) (*jetstream.PubAck, error) {
+	nc, err := s.natsConnect()
+	if err != nil {
+		return nil, err
+	}
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return nil, err
+	}
+
+	start := time.Now()
+	pa, err := js.PublishMsg(context.Background(), &nats.Msg{
+		Subject: subject,
+		Data:    payload,
+		Header:  header,
 	})
 	if err != nil {
 		return nil, err

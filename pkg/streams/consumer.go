@@ -7,9 +7,9 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type handlerFunc func(context.Context, string, map[string][]string, []byte) error
+type HandlerFunc func(context.Context, string, map[string][]string, []byte) error
 
-func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable string, handler handlerFunc) (jetstream.ConsumeContext, error) {
+func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable string, handler HandlerFunc) (jetstream.ConsumeContext, error) {
 	ctx := context.Background()
 
 	js, err := jetstream.New(nc)
