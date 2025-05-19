@@ -15,6 +15,8 @@ const (
 	MAX_ACK_PENDING = -1 //unlimited
 	MAX_DELIVERY    = -1 // unlimited
 	MAX_BYTES       = -1 // unlimited
+
+	PublishedByHeader = "publishedBy"
 )
 
 type KeyHistory struct {
@@ -439,7 +441,7 @@ func (s *Stream) PublishMsg(subject string, payload []byte, publisher string) (*
 		Subject: subject,
 		Data:    payload,
 		Header: nats.Header{
-			"publishedBy": []string{publisher},
+			PublishedByHeader: []string{publisher},
 		},
 	})
 	if err != nil {
