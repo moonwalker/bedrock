@@ -2,6 +2,7 @@ package streams
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/nats-io/nats.go"
@@ -9,6 +10,8 @@ import (
 )
 
 type HandlerFunc func(context.Context, string, map[string][]string, []byte) error
+
+type HandlerFuncNoAck func(context.Context, *jetstream.Msg) error
 
 func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable string, handler HandlerFunc) (jetstream.ConsumeContext, error) {
 	ctx := context.Background()
@@ -42,6 +45,38 @@ func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable s
 				msg.Ack()
 			}
 		}
+	})
+}
+
+func ConsumeMessagesNoAck(nc *nats.Conn, streamName string, subject string, durable string, handler HandlerFuncNoAck) (jetstream.ConsumeContext, error) {
+	ctx := context.Background()
+
+	if handler == nil {
+		return nil, errors.New("handler cannot be nil")
+	}
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return nil, err
+	}
+
+	cons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		FilterSubject: subject,
+		Durable:       durable,
+		DeliverPolicy: jetstream.DeliverLastPolicy,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return cons.Consume(func(msg jetstream.Msg) {
+		handler(ctx, &msg)
 	})
 }
 

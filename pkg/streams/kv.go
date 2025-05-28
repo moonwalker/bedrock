@@ -307,3 +307,52 @@ func (this *Stream) GetKeyHistory(bucket string, key string) error {
 
 	return nil
 }
+
+func (this *Stream) KVWatcher(bucket string, cfunc func(string, string, []byte)) error {
+	nc, err := this.natsConnect()
+	if err != nil {
+		return err
+	}
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return err
+	}
+
+	kv, err := js.KeyValue(context.Background(), bucket)
+	if err != nil {
+		return err
+	}
+
+	watcher, err := kv.WatchAll(context.Background(), jetstream.UpdatesOnly())
+
+	go func(w jetstream.KeyWatcher) {
+		defer w.Stop()
+		for kv := range watcher.Updates() {
+			if kv != nil {
+				slog.Info("KV update received",
+					"key", kv.Key(),
+					"value", string(kv.Value()),
+				)
+				cfunc(getOperation(kv.Operation()), kv.Key(), kv.Value())
+			} else {
+				slog.Info("KV update nil received")
+			}
+		}
+	}(watcher)
+
+	return err
+}
+
+func getOperation(op jetstream.KeyValueOp) string {
+	switch op {
+	case jetstream.KeyValuePut:
+		return "put"
+	case jetstream.KeyValueDelete:
+		return "delete"
+	case jetstream.KeyValuePurge:
+		return "purge"
+	default:
+		return "unknown"
+	}
+}
