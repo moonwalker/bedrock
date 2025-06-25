@@ -106,10 +106,11 @@ func ConsumeAllMessagesSync(nc *nats.Conn, streamName string, subject string, ha
 	if err != nil {
 		return err
 	}
-	msgCount := 0
+	/*msgCount := 0
 	for _, v := range si.State.Subjects {
 		msgCount += int(v)
-	}
+	}*/
+	msgCount := len(si.State.Subjects)
 
 	wg := sync.WaitGroup{}
 	wg.Add(msgCount)
