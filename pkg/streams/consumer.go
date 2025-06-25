@@ -95,7 +95,7 @@ func ConsumeAllMessagesSync(nc *nats.Conn, streamName string, subject string, ha
 
 	cons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		FilterSubject: subject,
-		DeliverPolicy: jetstream.DeliverAllPolicy,
+		DeliverPolicy: jetstream.DeliverLastPerSubjectPolicy,
 		AckPolicy:     jetstream.AckAllPolicy,
 	})
 	if err != nil {
