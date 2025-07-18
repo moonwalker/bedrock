@@ -172,7 +172,7 @@ func (s *Stream) CreateConsumer(stream string, durable string) (jetstream.Consum
 	})
 }
 
-func (s *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte, error) {
+func (s *Stream) GetMessageBySequence(sequence uint64) ([]byte, error) {
 	nc, err := s.natsConnect()
 	if err != nil {
 		return nil, err
@@ -183,7 +183,7 @@ func (s *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte, e
 		return nil, err
 	}
 
-	j, err := js.Stream(context.Background(), stream)
+	j, err := js.Stream(context.Background(), s.streamName)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (s *Stream) GetMessageBySequence(stream string, sequence uint64) ([]byte, e
 	}
 	elapsed0 := getElapsed(start0)
 
-	slog.Debug("get message by sequence", "stream", stream, "sequence", sequence, "elapsed", elapsed0)
+	slog.Debug("get message by sequence", "stream", s.streamName, "sequence", sequence, "elapsed", elapsed0)
 
 	return m.Data, nil
 }

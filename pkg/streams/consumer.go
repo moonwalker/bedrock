@@ -9,7 +9,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-type HandlerFunc func(context.Context, string, map[string][]string, []byte) error
+type HandlerFunc func(context.Context, string, map[string][]string, []byte, uint64) error
 
 type HandlerFuncNoAck func(context.Context, *jetstream.Msg) error
 
@@ -38,7 +38,11 @@ func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable s
 
 	return cons.Consume(func(msg jetstream.Msg) {
 		if handler != nil {
-			err := handler(ctx, msg.Subject(), msg.Headers(), msg.Data())
+			meta, err := msg.Metadata()
+			if err != nil {
+				return
+			}
+			err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
 			if err != nil {
 				msg.Nak()
 			} else {
@@ -117,7 +121,11 @@ func ConsumeAllMessagesSync(nc *nats.Conn, streamName string, subject string, ha
 
 	cc, err := cons.Consume(func(msg jetstream.Msg) {
 		if handler != nil {
-			err := handler(ctx, msg.Subject(), msg.Headers(), msg.Data())
+			meta, err := msg.Metadata()
+			if err != nil {
+				return
+			}
+			err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
 			if err != nil {
 				return
 			}
