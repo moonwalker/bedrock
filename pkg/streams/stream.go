@@ -147,6 +147,14 @@ func (s *Stream) GetStream(name string) (jetstream.Stream, error) {
 	return j, err
 }
 
+func (s *Stream) PurgeStream(name string) error {
+	j, err := s.GetStream(name)
+	if err != nil {
+		return err
+	}
+	return j.Purge(context.Background())
+}
+
 func (s *Stream) CreateConsumer(stream string, durable string) (jetstream.Consumer, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

@@ -142,3 +142,59 @@ func ConsumeAllMessagesSync(nc *nats.Conn, streamName string, subject string, ha
 
 	return nil
 }
+
+func ConsumeAll(nc *nats.Conn, streamName string, subject string, handler HandlerFunc) error {
+	ctx := context.Background()
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return err
+	}
+
+	stream, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return err
+	}
+
+	cons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		FilterSubject: subject,
+		DeliverPolicy: jetstream.DeliverAllPolicy,
+		AckPolicy:     jetstream.AckAllPolicy,
+	})
+	if err != nil {
+		return err
+	}
+
+	si, err := stream.Info(ctx, jetstream.WithSubjectFilter(subject))
+	if err != nil {
+		return err
+	}
+
+	msgCount := int(si.State.Msgs)
+
+	wg := sync.WaitGroup{}
+	wg.Add(msgCount)
+
+	cc, err := cons.Consume(func(msg jetstream.Msg) {
+		if handler != nil {
+			meta, err := msg.Metadata()
+			if err != nil {
+				return
+			}
+			err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
+			if err != nil {
+				return
+			}
+			msg.Ack()
+			wg.Done()
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	wg.Wait()
+	cc.Stop()
+
+	return nil
+}
