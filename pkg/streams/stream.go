@@ -132,6 +132,10 @@ func (s *Stream) CreateStreamWithDomainConfig(domain string, subjects []string, 
 	return j, nil
 }
 
+func (s *Stream) GetName() string {
+	return s.streamName
+}
+
 func (s *Stream) GetStream(name string) (jetstream.Stream, error) {
 	nc, err := s.natsConnect()
 	if err != nil {
