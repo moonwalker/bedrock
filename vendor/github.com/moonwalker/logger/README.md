@@ -1,2 +1,0 @@
-# logger
-Go logger interface

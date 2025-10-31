@@ -1,6 +1,6 @@
 module github.com/moonwalker/bedrock
 
-go 1.23
+go 1.25
 
 require (
 	github.com/aws/aws-sdk-go v1.55.5
@@ -15,8 +15,6 @@ require (
 	github.com/gomodule/redigo v1.9.2
 	github.com/imroc/req/v3 v3.48.0
 	github.com/jinzhu/gorm v1.9.16
-	github.com/moonwalker/backend v0.0.0-20241119150842-ecefa02c74ce
-	github.com/moonwalker/orbital v0.0.0-20241120092912-f27725e1f029
 	github.com/nats-io/nats.go v1.37.0
 	github.com/nats-io/nkeys v0.4.7
 	github.com/robfig/cron/v3 v3.0.1
@@ -27,7 +25,6 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.7 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.20 // indirect
@@ -51,17 +48,14 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lib/pq v1.10.9 // indirect
-	github.com/moonwalker/logger v0.0.0-20200918082039-f05ba76fc36a // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.47.0 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	go.uber.org/mock v0.4.0 // indirect
