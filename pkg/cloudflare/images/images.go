@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	apiurl      = "https://api.cloudflare.com/client/v4/accounts/%s/images/v1" // cloudflare api url
+	apiurl          = "https://api.cloudflare.com/client/v4/accounts/%s/images/v1" // cloudflare api url
+	batchTokenUrl   = "https://api.cloudflare.com/client/v4/accounts/%s/images/v1/batch_token"
+	batchRequestUrl = "https://batch.imagedelivery.net/images/v1"
+
 	imageCDNFmt = "https://imagedelivery.net/%s/%s/public"
 )
 
@@ -30,8 +33,8 @@ type uploadImageParams struct {
 
 type errorResponse struct {
 	Errors []struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
+		Code    interface{} `json:"code"`
+		Message string      `json:"message"`
 	} `json:"errors"`
 	Messages []interface{} `json:"messages"`
 	Result   interface{}   `json:"result"`
@@ -61,12 +64,14 @@ type ImageUploadInfo struct {
 }
 
 // GET https://api.cloudflare.com/client/v4/accounts/{account_identifier}/images/v1/{identifier}
-func Exists(cflAccount, cflImagesToken, imageID string) (bool, error) {
+func Exists(cflAccount, cflImagesToken, imageID string, isBatch bool) (bool, error) {
 	url := fmt.Sprintf(apiurl, cflAccount) + "/" + imageID
 
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", cflImagesToken))
-	req.Header.Add("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cflImagesToken))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "bedrock-go-client/1.0")
+
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("http request failed: %w", err)
@@ -86,8 +91,13 @@ func Exists(cflAccount, cflImagesToken, imageID string) (bool, error) {
 	return resp.Success, nil
 }
 
-func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent []byte, imageURL string) (*ImageUploadInfo, error) {
+func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent []byte, imageURL string, isBatch bool) (*ImageUploadInfo, error) {
 	url := fmt.Sprintf(apiurl, cflAccount)
+	token := cflAccount
+	if isBatch {
+		url = batchRequestUrl
+		token = cflAccountHash
+	}
 
 	form := map[string]string{"id": id}
 	p := uploadImageParams{
@@ -109,7 +119,7 @@ func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent 
 		"name", p.Name,
 	)
 	var resp interface{}
-	err = req(cflImagesToken, http.MethodPost, url, payload, resp, ct)
+	err = req(token, http.MethodPost, url, payload, resp, ct)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload image: %w, url:%s, contentType:%s", err, url, ct)
 	}
@@ -146,11 +156,12 @@ func Delete(cflAccount, cflImagesToken, id string) error {
 
 func req(cflToken, method, url string, payload io.Reader, resp interface{}, contentType string) error {
 	req, _ := http.NewRequest(method, url, payload)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", cflToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cflToken))
+	req.Header.Set("User-Agent", "bedrock-go-client/1.0")
 	if len(contentType) == 0 {
-		req.Header.Add("Content-Type", "application/json")
+		req.Header.Set("Content-Type", "application/json")
 	} else {
-		req.Header.Add("Content-Type", contentType)
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	res, err := http.DefaultClient.Do(req)
