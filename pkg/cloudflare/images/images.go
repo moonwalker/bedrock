@@ -17,6 +17,7 @@ import (
 
 const (
 	apiurl          = "https://api.cloudflare.com/client/v4/accounts/%s/images/v1" // cloudflare api url
+	streamUrl       = "https://api.cloudflare.com/client/v4/accounts/%s/stream"    // cloudflare stream api url
 	batchTokenUrl   = "https://api.cloudflare.com/client/v4/accounts/%s/images/v1/batch_token"
 	batchRequestUrl = "https://batch.imagedelivery.net/images/v1"
 
@@ -130,6 +131,48 @@ func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent 
 	}
 	if imageContent != nil {
 		mime := mimetype.Detect(imageContent)
+		if mime != nil {
+			res.MimeType = mime.String()
+		}
+	}
+
+	return res, nil
+}
+
+func UploadVideo(cflAccount, cflApiKey, id string, videoContent []byte, videoURL string) (*ImageUploadInfo, error) {
+	url := fmt.Sprintf(streamUrl, cflAccount)
+	fmt.Printf("VideoID: %s", id)
+	form := map[string]string{"id": id}
+	p := uploadImageParams{
+		URL:      videoURL,
+		Name:     id,
+		Metadata: form,
+	}
+	if videoContent != nil {
+		p.File = bytes.NewBuffer(videoContent)
+	}
+	ct, payload, err := createForm(p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	slog.Debug("uploading video to cfl",
+		"videoID", id,
+		"contentType", ct,
+		"name", p.Name,
+	)
+	var resp interface{}
+	err = req(cflApiKey, http.MethodPost, url, payload, resp, ct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload video: %w, url:%s, contentType:%s", err, url, ct)
+	}
+
+	res := &ImageUploadInfo{
+		Filename: p.Name,
+		ImageUrl: fmt.Sprintf(imageCDNFmt, cflAccount, p.Name),
+	}
+	if videoContent != nil {
+		mime := mimetype.Detect(videoContent)
 		if mime != nil {
 			res.MimeType = mime.String()
 		}
