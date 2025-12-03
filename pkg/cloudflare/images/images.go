@@ -141,7 +141,6 @@ func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent 
 
 func UploadVideo(cflAccount, cflApiKey, id string, videoContent []byte, videoURL string) (*ImageUploadInfo, error) {
 	url := fmt.Sprintf(streamUrl, cflAccount)
-	fmt.Printf("VideoID: %s", id)
 	form := map[string]string{"id": id}
 	p := uploadImageParams{
 		URL:      videoURL,
