@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -131,4 +133,40 @@ func TestFetchMessages(t *testing.T) {
 	}
 
 	fmt.Println("messages:", msgs)
+}
+
+// $ go test -run TestLastPerSubject -count=1 -v pkg/streams/*.go
+func TestLastPerSubject(t *testing.T) {
+	streamName := "content_dreamz"
+	filter := []string{"core.content_dreamz.*.entries.*.>"}
+
+	jStream, err := NewStream(natsURL, streamName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lmps, err := jStream.LastPerSubject(filter)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	total := 0
+	contentTypes := make([]string, 0)
+	entryCount := make(map[string]int)
+	for subject := range lmps {
+		ct := strings.Split(subject, ".")[4]
+		if entryCount[ct] == 0 {
+			contentTypes = append(contentTypes, ct)
+		}
+		entryCount[ct]++
+		total++
+	}
+
+	sort.Slice(contentTypes, func(i, j int) bool {
+		return contentTypes[i] < contentTypes[j]
+	})
+
+	for _, ct := range contentTypes {
+		fmt.Printf("%s: %d\n", ct, entryCount[ct])
+	}
+	fmt.Printf("total entries: %d\n", total)
 }
