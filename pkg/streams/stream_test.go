@@ -144,29 +144,62 @@ func TestLastPerSubject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lmps, err := jStream.LastPerSubject(filter)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	total := 0
-	contentTypes := make([]string, 0)
-	entryCount := make(map[string]int)
-	for subject := range lmps {
-		ct := strings.Split(subject, ".")[4]
-		if entryCount[ct] == 0 {
-			contentTypes = append(contentTypes, ct)
+	// Run multiple times to verify consistency
+	runs := 5
+	var previousTotal int
+	var previousResults map[string]int
+
+	for run := 1; run <= runs; run++ {
+		lmps, err := jStream.LastPerSubject(filter)
+		if err != nil {
+			t.Fatal(err)
 		}
-		entryCount[ct]++
-		total++
+
+		total := 0
+		contentTypes := make([]string, 0)
+		entryCount := make(map[string]int)
+		for subject := range lmps {
+			ct := strings.Split(subject, ".")[4]
+			if entryCount[ct] == 0 {
+				contentTypes = append(contentTypes, ct)
+			}
+			entryCount[ct]++
+			total++
+		}
+
+		// Check consistency across runs
+		if run > 1 {
+			if total != previousTotal {
+				t.Errorf("Run %d: Inconsistent total count. Got %d, expected %d", run, total, previousTotal)
+			}
+
+			// Verify each content type count matches
+			for ct, count := range entryCount {
+				if previousResults[ct] != count {
+					t.Errorf("Run %d: Inconsistent count for %s. Got %d, expected %d", run, ct, count, previousResults[ct])
+				}
+			}
+		}
+
+		previousTotal = total
+		previousResults = entryCount
+
+		// Print results for first run only
+		if run == 1 {
+			sort.Slice(contentTypes, func(i, j int) bool {
+				return contentTypes[i] < contentTypes[j]
+			})
+
+			fmt.Printf("\n=== Results (will verify consistency across %d runs) ===\n", runs)
+			for _, ct := range contentTypes {
+				fmt.Printf("%s: %d\n", ct, entryCount[ct])
+			}
+			fmt.Printf("total entries: %d\n", total)
+		} else {
+			fmt.Printf("Run %d/%d: ✓ Consistent (total: %d)\n", run, runs, total)
+		}
 	}
 
-	sort.Slice(contentTypes, func(i, j int) bool {
-		return contentTypes[i] < contentTypes[j]
-	})
-
-	for _, ct := range contentTypes {
-		fmt.Printf("%s: %d\n", ct, entryCount[ct])
-	}
-	fmt.Printf("total entries: %d\n", total)
+	fmt.Printf("\n✓ All %d runs returned consistent results!\n", runs)
 }

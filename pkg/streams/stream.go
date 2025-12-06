@@ -305,35 +305,38 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	}
 	elapsed0 := getElapsed(start0)
 
-	res := make(map[string][][]byte, 0)
+	res := make(map[string][][]byte)
+
+	// Use ephemeral consumer for better performance (auto-cleanup)
 	cc := jetstream.ConsumerConfig{
-		AckPolicy:      jetstream.AckNonePolicy,
-		MaxAckPending:  MAX_ACK_PENDING,
-		MaxDeliver:     MAX_DELIVERY,
-		DeliverPolicy:  jetstream.DeliverLastPerSubjectPolicy,
-		FilterSubjects: filters,
+		AckPolicy:         jetstream.AckNonePolicy,
+		DeliverPolicy:     jetstream.DeliverLastPerSubjectPolicy,
+		FilterSubjects:    filters,
+		InactiveThreshold: 5 * time.Second, // Auto-cleanup after 5s of inactivity
 	}
 
 	start1 := time.Now()
-	consumer, err := j.CreateOrUpdateConsumer(context.Background(), cc)
+	consumer, err := j.CreateConsumer(context.Background(), cc)
 	if err != nil {
 		return nil, err
 	}
 	elapsed1 := getElapsed(start1)
 
 	start2 := time.Now()
-	mb, err := consumer.FetchNoWait(FETCH_NO_WAIT)
+	// Use Fetch with short timeout for consistent results
+	// FetchNoWait would be faster but inconsistent with DeliverLastPerSubjectPolicy
+	mb, err := consumer.Fetch(FETCH_NO_WAIT, jetstream.FetchMaxWait(1*time.Second))
 	if err != nil {
 		return nil, err
 	}
 	elapsed2 := getElapsed(start2)
 
 	for m := range mb.Messages() {
-		s := m.Subject()
-		if res[s] == nil {
-			res[s] = make([][]byte, 0)
+		subject := m.Subject()
+		if res[subject] == nil {
+			res[subject] = make([][]byte, 0, 1) // Pre-allocate for 1 message
 		}
-		res[s] = append(res[s], m.Data())
+		res[subject] = append(res[subject], m.Data())
 	}
 
 	slog.Debug("fetch last message per subject",
