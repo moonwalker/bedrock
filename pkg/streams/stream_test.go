@@ -137,8 +137,8 @@ func TestFetchMessages(t *testing.T) {
 
 // $ go test -run TestLastPerSubject -count=1 -v pkg/streams/*.go
 func TestLastPerSubject(t *testing.T) {
-	streamName := "content_dreamz"
-	filter := []string{"core.content_dreamz.*.entries.*.>"}
+	streamName := "dreamz"
+	filter := []string{fmt.Sprintf("core.%s.*.entries.*.>", streamName)}
 
 	jStream, err := NewStream(natsURL, streamName)
 	if err != nil {
