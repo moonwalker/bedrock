@@ -288,6 +288,7 @@ func (s *Stream) FetchAll(filters []string, startTime *time.Time) ([][]byte, err
 }
 
 func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
+	ctx := context.Background()
 	start0 := time.Now()
 	nc, err := s.natsConnect()
 	if err != nil {
@@ -299,7 +300,7 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 		return nil, err
 	}
 
-	j, err := js.Stream(context.Background(), s.streamName)
+	j, err := js.Stream(ctx, s.streamName)
 	if err != nil {
 		return nil, err
 	}
@@ -312,20 +313,27 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 		AckPolicy:         jetstream.AckNonePolicy,
 		DeliverPolicy:     jetstream.DeliverLastPerSubjectPolicy,
 		FilterSubjects:    filters,
-		InactiveThreshold: 5 * time.Second, // Auto-cleanup after 5s of inactivity
+		InactiveThreshold: 1 * time.Second, // Auto-cleanup after 1s of inactivity
 	}
 
 	start1 := time.Now()
-	consumer, err := j.CreateConsumer(context.Background(), cc)
+	consumer, err := j.CreateConsumer(ctx, cc)
 	if err != nil {
 		return nil, err
 	}
 	elapsed1 := getElapsed(start1)
 
+	// Get consumer info to know how many messages to expect
+	consumerInfo, err := consumer.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	numPending := consumerInfo.NumPending
+
 	start2 := time.Now()
-	// Use Fetch with short timeout for consistent results
-	// FetchNoWait would be faster but inconsistent with DeliverLastPerSubjectPolicy
-	mb, err := consumer.Fetch(FETCH_NO_WAIT, jetstream.FetchMaxWait(1*time.Second))
+	// Use FetchNoWait since we know exactly how many messages to expect
+	// No timeout needed - just fetch what's available
+	mb, err := consumer.FetchNoWait(int(numPending))
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +342,7 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	for m := range mb.Messages() {
 		subject := m.Subject()
 		if res[subject] == nil {
-			res[subject] = make([][]byte, 0, 1) // Pre-allocate for 1 message
+			res[subject] = make([][]byte, 0, 1)
 		}
 		res[subject] = append(res[subject], m.Data())
 	}
@@ -344,6 +352,7 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 		"create stream", elapsed0,
 		"create consumer", elapsed1,
 		"fetch messages", elapsed2,
+		"pending", numPending,
 		"count", len(res),
 	)
 
