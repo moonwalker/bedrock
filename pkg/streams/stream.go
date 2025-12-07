@@ -323,17 +323,11 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	}
 	elapsed1 := getElapsed(start1)
 
-	// Get consumer info to know how many messages to expect
-	consumerInfo, err := consumer.Info(ctx)
-	if err != nil {
-		return nil, err
-	}
-	numPending := consumerInfo.NumPending
-
 	start2 := time.Now()
-	// Use FetchNoWait since we know exactly how many messages to expect
-	// No timeout needed - just fetch what's available
-	mb, err := consumer.FetchNoWait(int(numPending))
+	// Use Fetch with timeout to ensure server completes gathering messages
+	// DeliverLastPerSubjectPolicy requires server to scan and deduplicate by subject
+	// which takes time - timeout ensures we get ALL messages, not just what's ready immediately
+	mb, err := consumer.Fetch(FETCH_NO_WAIT, jetstream.FetchMaxWait(2*time.Second))
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +346,6 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 		"create stream", elapsed0,
 		"create consumer", elapsed1,
 		"fetch messages", elapsed2,
-		"pending", numPending,
 		"count", len(res),
 	)
 
