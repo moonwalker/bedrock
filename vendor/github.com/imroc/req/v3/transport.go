@@ -72,7 +72,7 @@ const defaultMaxIdleConnsPerHost = 2
 // Transport is an implementation of http.RoundTripper that supports HTTP,
 // HTTPS, and HTTP proxies (for either HTTP or HTTPS with CONNECT).
 //
-// By default, Transport caches connections for future re-use.
+// By default, Transport caches connections for future reuse.
 // This may leave many open connections when accessing many hosts.
 // This behavior can be managed using Transport's CloseIdleConnections method
 // and the MaxIdleConnsPerHost and DisableKeepAlives fields.
@@ -132,7 +132,7 @@ type Transport struct {
 	transport.Options
 
 	t2 *h2internal.Transport // non-nil if http2 wired up
-	t3 *http3.RoundTripper
+	t3 *http3.Transport
 
 	// disableAutoDecode, if true, prevents auto detect response
 	// body's charset and decode it to utf-8
@@ -451,7 +451,7 @@ func (t *Transport) SetTLSClientConfig(cfg *tls.Config) *Transport {
 }
 
 // SetDebug set the optional debug function.
-func (t *Transport) SetDebug(debugf func(format string, v ...interface{})) *Transport {
+func (t *Transport) SetDebug(debugf func(format string, v ...any)) *Transport {
 	t.Debugf = debugf
 	return t
 }
@@ -579,19 +579,6 @@ func (t *Transport) EnableHTTP3() {
 		}
 		return
 	}
-	minorVersion, err := strconv.Atoi(ss[1])
-	if err != nil {
-		if t.Debugf != nil {
-			t.Debugf("bad go minor version: %s", v)
-		}
-		return
-	}
-	if minorVersion < 22 || minorVersion > 23 {
-		if t.Debugf != nil {
-			t.Debugf("%s is not support http3", v)
-		}
-		return
-	}
 
 	if t.altSvcJar == nil {
 		t.altSvcJar = altsvc.NewAltSvcJar()
@@ -599,7 +586,7 @@ func (t *Transport) EnableHTTP3() {
 	if t.pendingAltSvcs == nil {
 		t.pendingAltSvcs = make(map[string]*pendingAltSvc)
 	}
-	t3 := &http3.RoundTripper{
+	t3 := &http3.Transport{
 		Options: &t.Options,
 	}
 	t.t3 = t3
@@ -859,7 +846,9 @@ func (t *Transport) checkAltSvc(req *http.Request) (resp *http.Response, err err
 		return
 	}
 	addr := netutil.AuthorityKey(req.URL)
+	t.pendingAltSvcsMu.Lock()
 	pas, ok := t.pendingAltSvcs[addr]
+	t.pendingAltSvcsMu.Unlock()
 	if ok && pas.Transport != nil {
 		pas.Mu.Lock()
 		if pas.Transport != nil {
@@ -875,7 +864,9 @@ func (t *Transport) checkAltSvc(req *http.Request) (resp *http.Response, err err
 				}
 			} else {
 				t.altSvcJar.SetAltSvc(addr, pas.Entries[pas.CurrentIndex])
+				t.pendingAltSvcsMu.Lock()
 				delete(t.pendingAltSvcs, addr)
+				t.pendingAltSvcsMu.Unlock()
 			}
 		}
 		pas.Mu.Unlock()
@@ -996,12 +987,12 @@ func (t *Transport) roundTrip(req *http.Request) (resp *http.Response, err error
 	//     RoundTripper returns.
 	ctx, cancel := context.WithCancelCause(req.Context())
 
-	// Convert Request.Cancel into context cancelation.
+	// Convert Request.Cancel into context cancellation.
 	if origReq.Cancel != nil {
 		go awaitLegacyCancel(ctx, cancel, origReq)
 	}
 
-	// Convert Transport.CancelRequest into context cancelation.
+	// Convert Transport.CancelRequest into context cancellation.
 	//
 	// This is lamentably expensive. CancelRequest has been deprecated for a long time
 	// and doesn't work on HTTP/2 requests. Perhaps we should drop support for it entirely.
@@ -1233,7 +1224,7 @@ func (t *Transport) CloseIdleConnections() {
 	}
 }
 
-// prepareTransportCancel sets up state to convert Transport.CancelRequest into context cancelation.
+// prepareTransportCancel sets up state to convert Transport.CancelRequest into context cancellation.
 func (t *Transport) prepareTransportCancel(req *http.Request, origCancel context.CancelCauseFunc) context.CancelCauseFunc {
 	// Historically, RoundTrip has not modified the Request in any way.
 	// We could avoid the need to keep a map of all in-flight requests by adding
@@ -3302,7 +3293,7 @@ func (pc *persistConn) wroteRequest() bool {
 		// Issue 7569, where the writer is still writing (or stalled),
 		// but the server has already replied. In this case, we don't
 		// want to wait too long, and we want to return false so this
-		// connection isn't re-used.
+		// connection isn't reused.
 		t := time.NewTimer(maxWriteWaitBeforeConnReuse)
 		defer t.Stop()
 		select {
@@ -3532,8 +3523,8 @@ func (pc *persistConn) roundTrip(req *transportRequest) (resp *http.Response, er
 // a t.Logf func. See export_test.go's Request.WithT method.
 type tLogKey struct{}
 
-func (tr *transportRequest) logf(format string, args ...interface{}) {
-	if logf, ok := tr.Request.Context().Value(tLogKey{}).(func(string, ...interface{})); ok {
+func (tr *transportRequest) logf(format string, args ...any) {
+	if logf, ok := tr.Request.Context().Value(tLogKey{}).(func(string, ...any)); ok {
 		logf(time.Now().Format(time.RFC3339Nano)+": "+format, args...)
 	}
 }

@@ -24,6 +24,8 @@ import (
 	"github.com/imroc/req/v3/http2"
 	"github.com/imroc/req/v3/internal/header"
 	"github.com/imroc/req/v3/internal/util"
+
+	"github.com/google/go-querystring/query"
 )
 
 // DefaultClient returns the global default Client.
@@ -49,16 +51,16 @@ type Client struct {
 	DebugLog              bool
 	AllowGetMethodPayload bool
 	*Transport
-
+	digestAuth              *digestAuth
 	cookiejarFactory        func() *cookiejar.Jar
 	trace                   bool
 	disableAutoReadResponse bool
 	commonErrorType         reflect.Type
 	retryOption             *retryOption
-	jsonMarshal             func(v interface{}) ([]byte, error)
-	jsonUnmarshal           func(data []byte, v interface{}) error
-	xmlMarshal              func(v interface{}) ([]byte, error)
-	xmlUnmarshal            func(data []byte, v interface{}) error
+	jsonMarshal             func(v any) ([]byte, error)
+	jsonUnmarshal           func(data []byte, v any) error
+	xmlMarshal              func(v any) ([]byte, error)
+	xmlUnmarshal            func(data []byte, v any) error
 	multipartBoundaryFunc   func() string
 	outputDirectory         string
 	scheme                  string
@@ -173,7 +175,7 @@ func (c *Client) SetResponseBodyTransformer(fn func(rawBody []byte, req *Request
 // to customize the result state check logic.
 //
 // Deprecated: Use SetCommonErrorResult instead.
-func (c *Client) SetCommonError(err interface{}) *Client {
+func (c *Client) SetCommonError(err any) *Client {
 	return c.SetCommonErrorResult(err)
 }
 
@@ -181,7 +183,7 @@ func (c *Client) SetCommonError(err interface{}) *Client {
 // if no error occurs but Response.ResultState returns ErrorState, by default it
 // is HTTP status `code >= 400`, you can also use SetCommonResultStateChecker
 // to customize the result state check logic.
-func (c *Client) SetCommonErrorResult(err interface{}) *Client {
+func (c *Client) SetCommonErrorResult(err any) *Client {
 	if err != nil {
 		c.commonErrorType = util.GetType(err)
 	}
@@ -321,20 +323,10 @@ func (c *Client) GetTLSClientConfig() *tls.Config {
 	return c.TLSClientConfig
 }
 
-func (c *Client) defaultCheckRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
-	}
-	if c.DebugLog {
-		c.log.Debugf("<redirect> %s %s", req.Method, req.URL.String())
-	}
-	return nil
-}
-
 // SetRedirectPolicy set the RedirectPolicy which controls the behavior of receiving redirect
 // responses (usually responses with 301 and 302 status code), see the predefined
-// AllowedDomainRedirectPolicy, AllowedHostRedirectPolicy, MaxRedirectPolicy, NoRedirectPolicy,
-// SameDomainRedirectPolicy and SameHostRedirectPolicy.
+// AllowedDomainRedirectPolicy, AllowedHostRedirectPolicy, DefaultRedirectPolicy, MaxRedirectPolicy,
+// NoRedirectPolicy, SameDomainRedirectPolicy and SameHostRedirectPolicy.
 func (c *Client) SetRedirectPolicy(policies ...RedirectPolicy) *Client {
 	if len(policies) == 0 {
 		return c
@@ -415,14 +407,14 @@ func (c *Client) SetTLSClientConfig(conf *tls.Config) *Client {
 	return c
 }
 
-// EnableInsecureSkipVerify enable send https without verifing
+// EnableInsecureSkipVerify enable send https without verifying
 // the server's certificates (disabled by default).
 func (c *Client) EnableInsecureSkipVerify() *Client {
 	c.GetTLSClientConfig().InsecureSkipVerify = true
 	return c
 }
 
-// DisableInsecureSkipVerify disable send https without verifing
+// DisableInsecureSkipVerify disable send https without verifying
 // the server's certificates (disabled by default).
 func (c *Client) DisableInsecureSkipVerify() *Client {
 	c.GetTLSClientConfig().InsecureSkipVerify = false
@@ -509,6 +501,31 @@ func (c *Client) SetCommonQueryString(query string) *Client {
 		}
 	}
 	return c
+}
+
+// SetCommonQueryParamsFromValues set URL query parameters from a url.Values map
+// for requests fired from the client.
+func (c *Client) SetCommonQueryParamsFromValues(params urlpkg.Values) *Client {
+	if c.QueryParams == nil {
+		c.QueryParams = make(urlpkg.Values)
+	}
+	for p, v := range params {
+		for _, pv := range v {
+			c.QueryParams.Add(p, pv)
+		}
+	}
+	return c
+}
+
+// SetCommonQueryParamsFromStruct set URL query parameters from a struct using go-querystring
+// for requests fired from the client.
+func (c *Client) SetCommonQueryParamsFromStruct(v any) *Client {
+	values, err := query.Values(v)
+	if err != nil {
+		c.log.Warnf("failed to convert struct to query parameters: %v", err)
+		return c
+	}
+	return c.SetCommonQueryParamsFromValues(values)
 }
 
 // SetCommonCookies set HTTP cookies for requests fired from the client.
@@ -852,10 +869,14 @@ func (c *Client) SetCommonBasicAuth(username, password string) *Client {
 // Information about Digest Access Authentication can be found in RFC7616:
 //
 //	https://datatracker.ietf.org/doc/html/rfc7616
-//
-// See `Request.SetDigestAuth`
 func (c *Client) SetCommonDigestAuth(username, password string) *Client {
-	c.OnAfterResponse(handleDigestAuthFunc(username, password))
+	c.digestAuth = &digestAuth{
+		Username:   username,
+		Password:   password,
+		HttpClient: c.httpClient,
+		cache:      make(map[string]*cchal),
+	}
+	c.Transport.WrapRoundTripFunc(c.digestAuth.HttpRoundTripWrapperFunc)
 	return c
 }
 
@@ -1091,28 +1112,28 @@ func (c *Client) ClearCookies() *Client {
 
 // SetJsonMarshal set the JSON marshal function which will be used
 // to marshal request body.
-func (c *Client) SetJsonMarshal(fn func(v interface{}) ([]byte, error)) *Client {
+func (c *Client) SetJsonMarshal(fn func(v any) ([]byte, error)) *Client {
 	c.jsonMarshal = fn
 	return c
 }
 
 // SetJsonUnmarshal set the JSON unmarshal function which will be used
 // to unmarshal response body.
-func (c *Client) SetJsonUnmarshal(fn func(data []byte, v interface{}) error) *Client {
+func (c *Client) SetJsonUnmarshal(fn func(data []byte, v any) error) *Client {
 	c.jsonUnmarshal = fn
 	return c
 }
 
 // SetXmlMarshal set the XML marshal function which will be used
 // to marshal request body.
-func (c *Client) SetXmlMarshal(fn func(v interface{}) ([]byte, error)) *Client {
+func (c *Client) SetXmlMarshal(fn func(v any) ([]byte, error)) *Client {
 	c.xmlMarshal = fn
 	return c
 }
 
 // SetXmlUnmarshal set the XML unmarshal function which will be used
 // to unmarshal response body.
-func (c *Client) SetXmlUnmarshal(fn func(data []byte, v interface{}) error) *Client {
+func (c *Client) SetXmlUnmarshal(fn func(data []byte, v any) error) *Client {
 	c.xmlUnmarshal = fn
 	return c
 }
@@ -1490,6 +1511,13 @@ func (c *Client) SetHTTP2WriteByteTimeout(timeout time.Duration) *Client {
 	return c
 }
 
+// Do is compatible with http.Client.Do, which can make req integration easier
+// in some scenarios. It should be noted that this will make some req features
+// not work properly, such as automatic retry, client middleware, etc.
+func (c *Client) Do(req *http.Request) (*http.Response, error) {
+	return c.httpClient.Do(req)
+}
+
 // NewClient is the alias of C
 func NewClient() *Client {
 	return C()
@@ -1565,7 +1593,7 @@ func C() *Client {
 		xmlUnmarshal:          xml.Unmarshal,
 		cookiejarFactory:      memoryCookieJarFactory,
 	}
-	httpClient.CheckRedirect = c.defaultCheckRedirect
+	c.SetRedirectPolicy(DefaultRedirectPolicy())
 	c.initCookieJar()
 
 	c.initTransport()
@@ -1593,7 +1621,7 @@ func (c *Client) initCookieJar() {
 }
 
 func (c *Client) initTransport() {
-	c.Debugf = func(format string, v ...interface{}) {
+	c.Debugf = func(format string, v ...any) {
 		if c.DebugLog {
 			c.log.Debugf(format, v...)
 		}

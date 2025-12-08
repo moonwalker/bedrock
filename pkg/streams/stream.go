@@ -12,7 +12,7 @@ import (
 
 const (
 	FETCH_NO_WAIT   = 1000000
-	MAX_ACK_PENDING = -1 //unlimited
+	MAX_ACK_PENDING = -1 // unlimited
 	MAX_DELIVERY    = -1 // unlimited
 	MAX_BYTES       = -1 // unlimited
 
@@ -326,14 +326,41 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	start2 := time.Now()
 	// Use Fetch with timeout to ensure server completes gathering messages
 	// DeliverLastPerSubjectPolicy requires server to scan and deduplicate by subject
-	// which takes time - timeout ensures we get ALL messages, not just what's ready immediately
-	mb, err := consumer.Fetch(FETCH_NO_WAIT, jetstream.FetchMaxWait(2*time.Second))
-	if err != nil {
-		return nil, err
+	// Fetch in batches - batch size and timeout scale together
+	var allMessages []jetstream.Msg
+
+	// Adaptive batch sizing based on expected stream size
+	batchSize := 5000 // Optimized for large streams (150k-200k messages)
+
+	// Timeout scales with batch size: ~50μs per message for server processing
+	// This accounts for DeliverLastPerSubjectPolicy deduplication overhead
+	timeout := time.Duration(batchSize/20) * time.Millisecond // 5000/20 = 250ms
+	if timeout < 100*time.Millisecond {
+		timeout = 100 * time.Millisecond // Minimum 100ms
+	}
+
+	for {
+		mb, err := consumer.Fetch(batchSize, jetstream.FetchMaxWait(timeout))
+		if err != nil {
+			if err == jetstream.ErrNoMessages {
+				break // No more messages
+			}
+			return nil, err
+		}
+
+		gotMessages := false
+		for msg := range mb.Messages() {
+			allMessages = append(allMessages, msg)
+			gotMessages = true
+		}
+
+		if !gotMessages {
+			break // No messages in this batch
+		}
 	}
 	elapsed2 := getElapsed(start2)
 
-	for m := range mb.Messages() {
+	for _, m := range allMessages {
 		subject := m.Subject()
 		if res[subject] == nil {
 			res[subject] = make([][]byte, 0, 1)

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/textproto"
-	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/quic-go/qpack"
 	"golang.org/x/net/http/httpguts"
+
+	"github.com/quic-go/qpack"
 )
 
 type header struct {
@@ -54,23 +54,33 @@ func parseHeaders(headers []qpack.HeaderField, isRequest bool) (header, error) {
 				// all pseudo headers must appear before regular header fields, see section 4.3 of RFC 9114
 				return header{}, fmt.Errorf("received pseudo header %s after a regular header field", h.Name)
 			}
-			var isResponsePseudoHeader bool // pseudo headers are either valid for requests or for responses
+			var isResponsePseudoHeader bool  // pseudo headers are either valid for requests or for responses
+			var isDuplicatePseudoHeader bool // pseudo headers are allowed to appear exactly once
 			switch h.Name {
 			case ":path":
+				isDuplicatePseudoHeader = hdr.Path != ""
 				hdr.Path = h.Value
 			case ":method":
+				isDuplicatePseudoHeader = hdr.Method != ""
 				hdr.Method = h.Value
 			case ":authority":
+				isDuplicatePseudoHeader = hdr.Authority != ""
 				hdr.Authority = h.Value
 			case ":protocol":
+				isDuplicatePseudoHeader = hdr.Protocol != ""
 				hdr.Protocol = h.Value
 			case ":scheme":
+				isDuplicatePseudoHeader = hdr.Scheme != ""
 				hdr.Scheme = h.Value
 			case ":status":
+				isDuplicatePseudoHeader = hdr.Status != ""
 				hdr.Status = h.Value
 				isResponsePseudoHeader = true
 			default:
 				return header{}, fmt.Errorf("unknown pseudo header: %s", h.Name)
+			}
+			if isDuplicatePseudoHeader {
+				return header{}, fmt.Errorf("duplicate pseudo header: %s", h.Name)
 			}
 			if isRequest && isResponsePseudoHeader {
 				return header{}, fmt.Errorf("invalid request pseudo header: %s", h.Name)
@@ -130,83 +140,6 @@ func parseTrailers(headers []qpack.HeaderField) (http.Header, error) {
 	return h, nil
 }
 
-func requestFromHeaders(headerFields []qpack.HeaderField) (*http.Request, error) {
-	hdr, err := parseHeaders(headerFields, true)
-	if err != nil {
-		return nil, err
-	}
-	// concatenate cookie headers, see https://tools.ietf.org/html/rfc6265#section-5.4
-	if len(hdr.Headers["Cookie"]) > 0 {
-		hdr.Headers.Set("Cookie", strings.Join(hdr.Headers["Cookie"], "; "))
-	}
-
-	isConnect := hdr.Method == http.MethodConnect
-	// Extended CONNECT, see https://datatracker.ietf.org/doc/html/rfc8441#section-4
-	isExtendedConnected := isConnect && hdr.Protocol != ""
-	if isExtendedConnected {
-		if hdr.Scheme == "" || hdr.Path == "" || hdr.Authority == "" {
-			return nil, errors.New("extended CONNECT: :scheme, :path and :authority must not be empty")
-		}
-	} else if isConnect {
-		if hdr.Path != "" || hdr.Authority == "" { // normal CONNECT
-			return nil, errors.New(":path must be empty and :authority must not be empty")
-		}
-	} else if len(hdr.Path) == 0 || len(hdr.Authority) == 0 || len(hdr.Method) == 0 {
-		return nil, errors.New(":path, :authority and :method must not be empty")
-	}
-
-	if !isExtendedConnected && len(hdr.Protocol) > 0 {
-		return nil, errors.New(":protocol must be empty")
-	}
-
-	var u *url.URL
-	var requestURI string
-
-	protocol := "HTTP/3.0"
-
-	if isConnect {
-		u = &url.URL{}
-		if isExtendedConnected {
-			u, err = url.ParseRequestURI(hdr.Path)
-			if err != nil {
-				return nil, err
-			}
-			protocol = hdr.Protocol
-		} else {
-			u.Path = hdr.Path
-		}
-		u.Scheme = hdr.Scheme
-		u.Host = hdr.Authority
-		requestURI = hdr.Authority
-	} else {
-		u, err = url.ParseRequestURI(hdr.Path)
-		if err != nil {
-			return nil, fmt.Errorf("invalid content length: %w", err)
-		}
-		requestURI = hdr.Path
-	}
-
-	return &http.Request{
-		Method:        hdr.Method,
-		URL:           u,
-		Proto:         protocol,
-		ProtoMajor:    3,
-		ProtoMinor:    0,
-		Header:        hdr.Headers,
-		Body:          nil,
-		ContentLength: hdr.ContentLength,
-		Host:          hdr.Authority,
-		RequestURI:    requestURI,
-	}, nil
-}
-
-func hostnameFromURL(url *url.URL) string {
-	if url != nil {
-		return url.Host
-	}
-	return ""
-}
-
 // updateResponseFromHeaders sets up http.Response as an HTTP/3 response,
 // using the decoded qpack header filed.
 // It is only called for the HTTP header (and not the HTTP trailer).
@@ -217,7 +150,7 @@ func updateResponseFromHeaders(rsp *http.Response, headerFields []qpack.HeaderFi
 		return err
 	}
 	if hdr.Status == "" {
-		return errors.New("missing status field")
+		return errors.New("missing :status field")
 	}
 	rsp.Proto = "HTTP/3.0"
 	rsp.ProtoMajor = 3
