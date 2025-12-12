@@ -120,14 +120,14 @@ func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent 
 		"name", p.Name,
 	)
 	var resp interface{}
-	err = req(token, http.MethodPost, url, payload, resp, ct)
+	err = req(token, http.MethodPost, url, payload, &resp, ct)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload image: %w, url:%s, contentType:%s", err, url, ct)
 	}
 
 	res := &ImageUploadInfo{
 		Filename: p.Name,
-		ImageUrl: fmt.Sprintf(imageCDNFmt, cflAccountHash, p.Name),
+		ImageUrl: resp.(map[string]interface{})["result"].(map[string]interface{})["variants"].([]interface{})[0].(string),
 	}
 	if imageContent != nil {
 		mime := mimetype.Detect(imageContent)
@@ -218,14 +218,14 @@ func req(cflToken, method, url string, payload io.Reader, resp interface{}, cont
 	}
 
 	if res.StatusCode != http.StatusOK {
-		resp := &errorResponse{}
-		err = json.Unmarshal(body, &resp)
+		e := &errorResponse{}
+		err = json.Unmarshal(body, &e)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal error response: %w", err)
 		}
 		err = fmt.Errorf("error: %d", res.StatusCode)
-		if len(resp.Errors) > 0 {
-			err = fmt.Errorf("%w: %s", err, resp.Errors[0].Message)
+		if len(e.Errors) > 0 {
+			err = fmt.Errorf("%w: %s", err, e.Errors[0].Message)
 		}
 		return err
 	}
