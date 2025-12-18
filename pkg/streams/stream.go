@@ -330,7 +330,7 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	var allMessages []jetstream.Msg
 
 	// Adaptive batch sizing based on expected stream size
-	batchSize := 10000 // Optimized for large streams (150k-200k messages)
+	batchSize := 20000 // Optimized for large streams (150k-200k messages)
 
 	// Timeout scales with batch size: ~50μs per message for server processing
 	// This accounts for DeliverLastPerSubjectPolicy deduplication overhead
