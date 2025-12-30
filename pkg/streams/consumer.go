@@ -3,6 +3,7 @@ package streams
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/nats-io/nats.go"
@@ -29,7 +30,7 @@ func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable s
 	cons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		FilterSubject: subject,
 		Durable:       durable,
-		DeliverPolicy: jetstream.DeliverLastPolicy,
+		DeliverPolicy: jetstream.DeliverNewPolicy,
 		AckPolicy:     jetstream.AckExplicitPolicy,
 	})
 	if err != nil {
@@ -40,10 +41,12 @@ func ConsumeMessages(nc *nats.Conn, streamName string, subject string, durable s
 		if handler != nil {
 			meta, err := msg.Metadata()
 			if err != nil {
+				fmt.Println("Consume meta error:", err)
 				return
 			}
 			err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
 			if err != nil {
+				fmt.Println("Consume handler error:", err)
 				msg.Nak()
 			} else {
 				msg.Ack()
@@ -123,10 +126,12 @@ func ConsumeAllMessagesSync(nc *nats.Conn, streamName string, subject string, ha
 		if handler != nil {
 			meta, err := msg.Metadata()
 			if err != nil {
+				fmt.Println("ConsumeAllMessagesSync meta error:", err)
 				return
 			}
 			err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
 			if err != nil {
+				fmt.Println("ConsumeAllMessagesSync handler error:", err)
 				return
 			}
 			msg.Ack()
@@ -179,11 +184,70 @@ func ConsumeAll(nc *nats.Conn, streamName string, subject string, handler Handle
 		if handler != nil {
 			meta, err := msg.Metadata()
 			if err != nil {
+				fmt.Println("ConsumeAll meta error:", err)
 				return
 			}
 			err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
 			if err != nil {
+				fmt.Println("ConsumeAll handler error:", err)
 				return
+			}
+			msg.Ack()
+			wg.Done()
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	wg.Wait()
+	cc.Stop()
+
+	return nil
+}
+
+func ConsumeAllAct(nc *nats.Conn, streamName string, subject string, handler HandlerFunc) error {
+	ctx := context.Background()
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return err
+	}
+
+	stream, err := js.Stream(ctx, streamName)
+	if err != nil {
+		return err
+	}
+
+	cons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		FilterSubject: subject,
+		DeliverPolicy: jetstream.DeliverLastPerSubjectPolicy,
+		AckPolicy:     jetstream.AckAllPolicy,
+	})
+	if err != nil {
+		return err
+	}
+
+	si, err := stream.Info(ctx, jetstream.WithSubjectFilter(subject))
+	if err != nil {
+		return err
+	}
+
+	msgCount := int(si.State.Msgs)
+
+	wg := sync.WaitGroup{}
+	wg.Add(msgCount)
+
+	cc, err := cons.Consume(func(msg jetstream.Msg) {
+		if handler != nil {
+			meta, err := msg.Metadata()
+			if err != nil {
+				fmt.Println("ConsumeAllAct meta error:", err)
+			} else {
+				err = handler(ctx, msg.Subject(), msg.Headers(), msg.Data(), meta.Sequence.Stream)
+				if err != nil {
+					fmt.Println("ConsumeAllAct handler error:", err)
+				}
 			}
 			msg.Ack()
 			wg.Done()
