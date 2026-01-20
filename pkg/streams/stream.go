@@ -288,7 +288,7 @@ func (s *Stream) FetchAll(filters []string, startTime *time.Time) ([][]byte, err
 	return res, nil
 }
 
-func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
+func (s *Stream) LastPerSubject_(filters []string) (map[string][][]byte, error) {
 	ctx := context.Background()
 	start0 := time.Now()
 	nc, err := s.natsConnect()
@@ -373,6 +373,66 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 			res[subject] = make([][]byte, 0, 1)
 		}
 		res[subject] = append(res[subject], m.Data())
+	}
+
+	slog.Debug("fetch last message per subject",
+		"filters", filters,
+		"create stream", elapsed0,
+		"create consumer", elapsed1,
+		"fetch messages", elapsed2,
+		"count", len(res),
+	)
+
+	return res, nil
+}
+
+func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
+	start0 := time.Now()
+	nc, err := s.natsConnect()
+	if err != nil {
+		return nil, err
+	}
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return nil, err
+	}
+
+	j, err := js.Stream(context.Background(), s.streamName)
+	if err != nil {
+		return nil, err
+	}
+	elapsed0 := getElapsed(start0)
+
+	res := make(map[string][][]byte, 0)
+	cc := jetstream.ConsumerConfig{
+		AckPolicy:      jetstream.AckNonePolicy,
+		MaxAckPending:  MAX_ACK_PENDING,
+		MaxDeliver:     MAX_DELIVERY,
+		DeliverPolicy:  jetstream.DeliverLastPerSubjectPolicy,
+		FilterSubjects: filters,
+	}
+
+	start1 := time.Now()
+	consumer, err := j.CreateOrUpdateConsumer(context.Background(), cc)
+	if err != nil {
+		return nil, err
+	}
+	elapsed1 := getElapsed(start1)
+
+	start2 := time.Now()
+	mb, err := consumer.FetchNoWait(FETCH_NO_WAIT)
+	if err != nil {
+		return nil, err
+	}
+	elapsed2 := getElapsed(start2)
+
+	for m := range mb.Messages() {
+		s := m.Subject()
+		if res[s] == nil {
+			res[s] = make([][]byte, 0)
+		}
+		res[s] = append(res[s], m.Data())
 	}
 
 	slog.Debug("fetch last message per subject",
