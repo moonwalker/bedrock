@@ -2,10 +2,7 @@ package qpack
 
 // copied from the Go standard library HPACK implementation
 
-import (
-	"errors"
-	"io"
-)
+import "errors"
 
 var errVarintOverflow = errors.New("varint integer overflow")
 
@@ -34,13 +31,13 @@ func appendVarInt(dst []byte, n byte, i uint64) []byte {
 // n must always be between 1 and 8.
 //
 // The returned remain buffer is either a smaller suffix of p, or err != nil.
-// The error is io.ErrUnexpectedEOF if p doesn't contain a complete integer.
+// The error is errNeedMore if p doesn't contain a complete integer.
 func readVarInt(n byte, p []byte) (i uint64, remain []byte, err error) {
 	if n < 1 || n > 8 {
 		panic("bad n")
 	}
 	if len(p) == 0 {
-		return 0, p, io.ErrUnexpectedEOF
+		return 0, p, errNeedMore
 	}
 	i = uint64(p[0])
 	if n < 8 {
@@ -65,5 +62,5 @@ func readVarInt(n byte, p []byte) (i uint64, remain []byte, err error) {
 			return 0, origP, errVarintOverflow
 		}
 	}
-	return 0, origP, io.ErrUnexpectedEOF
+	return 0, origP, errNeedMore
 }

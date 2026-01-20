@@ -3,6 +3,7 @@ package streams
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -324,38 +325,44 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 	elapsed1 := getElapsed(start1)
 
 	start2 := time.Now()
-	// Use Fetch with timeout to ensure server completes gathering messages
-	// DeliverLastPerSubjectPolicy requires server to scan and deduplicate by subject
-	// Fetch in batches - batch size and timeout scale together
-	var allMessages []jetstream.Msg
-
-	// Adaptive batch sizing based on expected stream size
-	batchSize := 50000 // Optimized for large streams (150k-200k messages)
-
-	// Timeout scales with batch size: ~50μs per message for server processing
-	// This accounts for DeliverLastPerSubjectPolicy deduplication overhead
-	timeout := time.Duration(batchSize/20) * time.Millisecond // 50000/20 = 2.5s
-	if timeout < 100*time.Millisecond {
-		timeout = 100 * time.Millisecond // Minimum 100ms
+	// DeliverLastPerSubjectPolicy: server pre-calculates last message per subject
+	// Get NumPending to know exactly how many messages to expect
+	consInfo, err := consumer.Info(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	for {
-		mb, err := consumer.Fetch(batchSize, jetstream.FetchMaxWait(timeout))
+	pending := int(consInfo.NumPending)
+	// Pre-allocate slice to avoid reallocations for large message counts
+	allMessages := make([]jetstream.Msg, 0, pending)
+
+	if pending > 0 {
+		// Use Consume with StopAfter to stop exactly when all messages received
+		// This avoids waiting for timeout after last message
+		var consumeErr error
+		cc, err := consumer.Consume(func(msg jetstream.Msg) {
+			allMessages = append(allMessages, msg)
+		}, jetstream.StopAfter(pending))
 		if err != nil {
-			if err == jetstream.ErrNoMessages {
-				break // No more messages
-			}
 			return nil, err
 		}
 
-		gotMessages := false
-		for msg := range mb.Messages() {
-			allMessages = append(allMessages, msg)
-			gotMessages = true
+		// Wait for completion with timeout safeguard
+		// Allow ~1ms per message + 30s base for network overhead
+		timeout := time.Duration(pending)*time.Millisecond + 30*time.Second
+		select {
+		case <-cc.Closed():
+			// Normal completion
+		case <-time.After(timeout):
+			cc.Stop()
+			consumeErr = fmt.Errorf("timeout after %v waiting for %d messages", timeout, pending)
+		case <-ctx.Done():
+			cc.Stop()
+			consumeErr = ctx.Err()
 		}
 
-		if !gotMessages {
-			break // No messages in this batch
+		if consumeErr != nil {
+			return nil, consumeErr
 		}
 	}
 	elapsed2 := getElapsed(start2)
