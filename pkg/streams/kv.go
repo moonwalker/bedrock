@@ -66,6 +66,8 @@ func (this *Stream) AddKeyValue(bucket string, key string, value []byte) error {
 	elapsed2 := getElapsed(start2)
 
 	slog.Debug("add key-value",
+		"bucket", bucket,
+		"key", key,
 		"Get KV store", elapsed1,
 		"Add keyValue", elapsed2,
 	)
@@ -96,6 +98,8 @@ func (this *Stream) PutKeyValue(bucket string, key string, value []byte) error {
 	elapsed2 := getElapsed(start2)
 
 	slog.Debug("put key-value",
+		"bucket", bucket,
+		"key", key,
 		"Get KV store", elapsed1,
 		"Put keyValue", elapsed2,
 	)
@@ -126,6 +130,8 @@ func (this *Stream) DeleteKeyValue(bucket string, key string) error {
 	elapsed2 := getElapsed(start2)
 
 	slog.Debug("delete key-value",
+		"bucket", bucket,
+		"key", key,
 		"Get KV store", elapsed1,
 		"Put keyValue", elapsed2,
 	)
@@ -156,8 +162,10 @@ func (this *Stream) UpdateKeyValue(bucket string, key string, value []byte, revi
 	elapsed2 := getElapsed(start2)
 
 	slog.Debug("update key-value",
+		"bucket", bucket,
+		"key", key,
 		"Get KV store", elapsed1,
-		"Add keyValue", elapsed2,
+		"Update keyValue", elapsed2,
 	)
 
 	return err
@@ -192,6 +200,8 @@ func (this *Stream) GetValueByKey(bucket string, key string) ([]byte, error) {
 	elapsed2 := getElapsed(start2)
 
 	slog.Debug("get value by key",
+		"bucket", bucket,
+		"key", key,
 		"Get KV store", elapsed1,
 		"Get Value", elapsed2,
 	)
@@ -300,6 +310,8 @@ func (this *Stream) GetKeyHistory(bucket string, key string) error {
 	}
 
 	slog.Debug("get key history",
+		"bucket", bucket,
+		"key", key,
 		"Get KV store", elapsed1,
 		"Get history", elapsed2,
 		"History", hist,
