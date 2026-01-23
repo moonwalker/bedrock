@@ -381,6 +381,7 @@ func (s *Stream) LastPerSubject_(filters []string) (map[string][][]byte, error) 
 		"create consumer", elapsed1,
 		"fetch messages", elapsed2,
 		"count", len(res),
+		"streamName", s.streamName,
 	)
 
 	return res, nil
@@ -441,6 +442,7 @@ func (s *Stream) LastPerSubject(filters []string) (map[string][][]byte, error) {
 		"create consumer", elapsed1,
 		"fetch messages", elapsed2,
 		"count", len(res),
+		"streamName", s.streamName,
 	)
 
 	return res, nil
@@ -480,12 +482,13 @@ func (s *Stream) LastBySubject(filters []string) ([]byte, error) {
 	res = rm.Data
 	elapsed3 := getElapsed(start3)
 
-	slog.Debug("get last message for subject",
+	slog.Debug("get last message by subject",
 		"filters", filters,
 		"s.natsConnect", elapsed0,
 		"jetstream.New", elapsed1,
 		"js.Stream", elapsed2,
 		"s.GetLastMsgForSubject", elapsed3,
+		"streamName", s.streamName,
 	)
 
 	return res, err
@@ -512,6 +515,7 @@ func (s *Stream) Publish(subject string, payload []byte) (*jetstream.PubAck, err
 	slog.Debug("publish message",
 		"elapsed", elapsed,
 		"subject", subject,
+		"streamName", s.streamName,
 	)
 
 	return pa, nil
@@ -560,7 +564,11 @@ func (s *Stream) PublishMsg(subject string, payload []byte, publisher string) (*
 	}
 	elapsed := getElapsed(start)
 
-	slog.Debug("publish message", "elapsed", elapsed)
+	slog.Debug("publish message",
+		"elapsed", elapsed,
+		"subject", subject,
+		"streamName", s.streamName,
+	)
 
 	return pa, nil
 }
@@ -587,7 +595,11 @@ func (s *Stream) PublishMsgWithHeader(subject string, payload []byte, header map
 	}
 	elapsed := getElapsed(start)
 
-	slog.Debug("publish message", "elapsed", elapsed)
+	slog.Debug("publish message",
+		"elapsed", elapsed,
+		"subject", subject,
+		"streamName", s.streamName,
+	)
 
 	return pa, nil
 }
