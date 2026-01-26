@@ -17,8 +17,9 @@ const (
 	MAX_DELIVERY    = -1 // unlimited
 	MAX_BYTES       = -1 // unlimited
 
-	PublishedByHeader = "publishedBy"
-	RequestIDHeader   = "requestID"
+	PublishedByHeader   = "publishedBy"
+	RequestIDHeader     = "requestID"
+	IgnoreConsumeHeader = "ignoreConsume"
 )
 
 type KeyHistory struct {
