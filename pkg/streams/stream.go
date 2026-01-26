@@ -18,6 +18,7 @@ const (
 	MAX_BYTES       = -1 // unlimited
 
 	PublishedByHeader = "publishedBy"
+	RequestIDHeader   = "requestID"
 )
 
 type KeyHistory struct {
