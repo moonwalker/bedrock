@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"log/slog"
@@ -127,7 +128,7 @@ func Upload(cflAccount, cflAccountHash, cflImagesToken, id string, imageContent 
 
 	res := &ImageUploadInfo{
 		Filename: p.Name,
-		ImageUrl: resp.(map[string]interface{})["result"].(map[string]interface{})["variants"].([]interface{})[0].(string),
+		ImageUrl: strings.Replace(resp.(map[string]interface{})["result"].(map[string]interface{})["variants"].([]interface{})[0].(string), "https://", "//", 1),
 	}
 	if imageContent != nil {
 		mime := mimetype.Detect(imageContent)
